@@ -1,0 +1,1018 @@
+---
+title: "Statistical Analysis"
+author: "Kerri Miazgowicz"
+organization: "University of Georgia"
+date: "May 17, 2019"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Survival Analysis
+
+###Kaplain-Meir Curves & Associated Plots
+###Step 1: Importing data & formating data for survival analysis
+```{r}
+# Set working directory
+mainDir = "C:/Users/Kerri/Desktop/RateSummationProject"
+setwd(mainDir)
+
+library(ggplot2)
+library(ggfortify)
+library(survival)
+library(coxme)
+library(dplyr)
+library(ggpubr)
+
+
+# importing data set
+const_data <- read.csv("data/constant_master.csv")
+fluc9_data <- read.csv("data/fluc_dtr9_master.csv")
+fluc12_data <- read.csv("data/fluc_dtr12_master.csv")
+
+#resassigning colm classifications for const data set
+const_data$Date <- as.character(const_data$Date)
+const_data$Date2 <- as.POSIXlt(const_data$Date, format = "%m/%d/%Y")
+const_data$Female <- as.factor(const_data$Female)
+const_data$Treatment <- as.factor(const_data$Treatment)
+
+# Reassigning colm classifications
+fluc9_data$Date <- as.character(fluc9_data$Date)
+fluc9_data$Date2 <- as.POSIXlt(fluc9_data$Date, format = "%m/%d/%Y")
+fluc9_data$Female <- as.factor(fluc9_data$Female)
+fluc9_data$Treatment <- as.factor(fluc9_data$Treatment)
+
+#reassigning colm classifcations for the 12DTR set
+fluc12_data$Date <- as.character(fluc12_data$Date)
+fluc12_data$Date2 <- as.POSIXlt(fluc12_data$Date, format = "%m/%d/%Y")
+fluc12_data$Female <- as.factor(fluc12_data$Female)
+fluc12_data$Treatment <- as.factor(fluc12_data$Treatment)
+
+```
+
+##Survival analysis
+```{r}
+
+#Format the datasets to be compatabile wth survival data
+library(ggfortify)
+library(survival)
+library(survminer)
+
+const_surv_data <- subset(const_data, select = c("Date","Treatment", "Block","Donor", "Female", "Dead", "Day"))
+fluc9_surv_data <- subset(fluc9_data, select = c("Date","Treatment", "Block","Donor", "Female", "Dead", "Day"))
+fluc12_surv_data <- subset(fluc12_data, select = c("Date","Treatment", "Block","Donor", "Female", "Dead", "Day"))
+
+##Changing the name of "Dead" to "Event" for ease of understanding
+names(const_surv_data)[6]<- paste("Event")
+names(fluc9_surv_data)[6]<- paste("Event")
+names(fluc12_surv_data)[6] <- paste("Event")
+
+
+#Removing all non-events from the dataframe
+const_surv_data <- const_surv_data[!(const_surv_data$Event == 0),]
+fluc9_surv_data <- fluc9_surv_data[!(fluc9_surv_data$Event == 0),]
+fluc12_surv_data <- fluc12_surv_data[!(fluc12_surv_data$Event == 0),]
+
+#Changing Event == 2 to 0 to indicate right censoring
+const_surv_data$Event[const_surv_data$Event == 2] <- 0
+fluc9_surv_data$Event[fluc9_surv_data$Event == 2] <- 0
+fluc12_surv_data$Event[fluc12_surv_data$Event == 2] <- 0
+
+##Removing all instances where there is no event (0 = right censor, 1 = dead event), if any
+const_surv_data <- const_surv_data[complete.cases(const_surv_data$Event),]
+fluc9_surv_data <- fluc9_surv_data[complete.cases(fluc9_surv_data$Event),]
+fluc12_surv_data <- fluc12_surv_data[complete.cases(fluc12_surv_data$Event),]
+
+#Set Treatment, Block, Donor as factors
+const_surv_data$Date <-as.character(const_surv_data$Date)
+const_surv_data$Date2 <-as.POSIXlt(const_surv_data$Date, format="%m/%d/%Y")
+const_surv_data$Treatment <- as.factor(const_surv_data$Treatment)
+const_surv_data$Block <- as.factor(const_surv_data$Block)
+const_surv_data$Donor <- as.factor(const_surv_data$Donor)
+const_surv_data$Female <- as.factor(const_surv_data$Female)
+
+fluc9_surv_data$Date <-as.character(fluc9_surv_data$Date)
+fluc9_surv_data$Date2 <-as.POSIXlt(fluc9_surv_data$Date, format="%m/%d/%Y")
+fluc9_surv_data$Treatment <- as.factor(fluc9_surv_data$Treatment)
+fluc9_surv_data$Block <- as.factor(fluc9_surv_data$Block)
+fluc9_surv_data$Donor <- as.factor(fluc9_surv_data$Donor)
+fluc9_surv_data$Female <- as.factor(fluc9_surv_data$Female)
+
+fluc12_surv_data$Date <-as.character(fluc12_surv_data$Date)
+fluc12_surv_data$Date2 <-as.POSIXlt(fluc12_surv_data$Date, format="%m/%d/%Y")
+fluc12_surv_data$Treatment <- as.factor(fluc12_surv_data$Treatment)
+fluc12_surv_data$Block <- as.factor(fluc12_surv_data$Block)
+fluc12_surv_data$Donor <- as.factor(fluc12_surv_data$Donor)
+fluc12_surv_data$Female <- as.factor(fluc12_surv_data$Female)
+
+#KM Curve setup 
+const_surv_Temp <- survfit(Surv(Day, Event) ~ Treatment, data = const_surv_data)
+fluc9_surv_Temp <- survfit(Surv(Day, Event) ~ Treatment, data = fluc9_surv_data)
+fluc12_surv_Temp <- survfit(Surv(Day, Event) ~ Treatment, data = fluc12_surv_data)
+#Viewing
+summary(const_surv_Temp)
+summary(fluc9_surv_Temp)
+summary(fluc12_surv_Temp)
+
+#Fortify() did not convert the standard error from object correctly, thus I mannually copy & paste Km_estimates from each Survival object and saved into data/ folder under 'KM_estimates_constant', 'KM_estimates_dtr9', and 'KM_estimates_dtr12'
+#**Note:When manually extracting I added a datarow for each temp (day = 0, survival = 1) for graphing purposes
+
+#Loading the csv files back in for use in code
+const_surv_KM_values <- read.csv("data/KM_estimates_constant.csv")
+fluc9_surv_KM_values <- read.csv("data/KM_estimates_dtr9.csv")
+fluc12_surv_KM_values <- read.csv("data/KM_estimates_dtr12.csv")
+
+#Extracting KM_estimates for each Program (constant, dtr9, dtr12)to a dataframe - did not work properly
+#Convert R model to a dataframe
+#const_surv_KM_values <- fortify(const_surv_Temp)  #Mean temperature within  program = 'strata' column
+#Add in the first row that at time 0, surv = 1
+#Need to add an additional row for each strata (so that day 0 = 100% surival)
+#rows do not need to be in order for downstream applications
+#step 1: extract a vector and make that 'strata' in the new data frame
+#step 2: create a dataframe with V3= "strata" but I want to retain all cols in the original dataframe
+#temp.treatments = levels(const_surv_KM_values$strata)
+#const_surv_KM_values  <- rbind(data.frame(time = 0, n.risk = 60, n.event=0, n.censor=0, surv = 1, std.err = 0, upper = 1, lower = 1, strata = temp.treatments), const_surv_KM_values) 
+#Last: n.risk = 90 not 60 for 28C @ constant temperature; Fix
+#const_surv_KM_values$n.risk[const_surv_KM_values$time == 0 & const_surv_KM_values$strata == "28"] <- 90 
+
+#Repeat for fluctuation programs
+#fluc9_surv_KM_values <- fortify(fluc9_surv_Temp)
+#test_fortify<- fortify(survfit(Surv(Day, Event) ~ Treatment, data = fluc9_surv_data))
+#temp.treatments = levels(fluc9_surv_KM_values$strata)
+#fluc9_surv_KM_values  <- rbind(data.frame(time = 0, n.risk = 60, n.event=0, n.censor=0, surv = 1, std.err = 0, upper = 1, lower = 1, strata = temp.treatments), fluc9_surv_KM_values) 
+
+#fluc12_surv_KM_values <- fortify(fluc12_surv_Temp)
+#temp.treatments = levels(fluc12_surv_KM_values$strata)
+#fluc12_surv_KM_values  <- rbind(data.frame(time = 0, n.risk = 60, n.event=0, n.censor=0, surv = 1, std.err = 0, upper = 1, lower = 1, strata = temp.treatments), fluc12_surv_KM_values) 
+
+#Look at statistical differences between temperature treatments within a program
+const.diff.Temp <- survdiff(Surv(Day,Event) ~ Treatment, data = const_surv_data)
+const.diff.Temp
+
+fluc9.diff.Temp <- survdiff(Surv(Day,Event) ~ Treatment, data = fluc9_surv_data)
+fluc9.diff.Temp
+
+fluc12.diff.Temp <- survdiff(Surv(Day, Event) ~ Treatment, data = fluc12_surv_data)
+fluc12.diff.Temp
+#TEMPERATUER IS HIGHLY SIGNIFICANT REGARDLESS OF THE PROGRAM
+
+#Basic plots
+ggsurvplot(const_surv_Temp, data = const_surv_data, conf.int = TRUE,
+           palette =  c("#88498F","#1C77C3", "#4C4C4F","#196F0B","#FF6B35","#CC0606"),
+           size = 1.2,
+           linetype = "solid",
+           xlab = "Days at treatment",
+           break.x.by = 5,
+           break.y.by = .1,
+           legend = c(0.89,0.754),
+           xlim = c(0,60,5),
+           legend.labs = c("16C","20C","24C","28C","32C","36C"),
+           legend.title = "Temperature",
+           font.tickslab = c (12, "plain", "black"),
+           ggtheme= theme_classic(base_size = 20))
+
+ggsurvplot(fluc9_surv_Temp, data = fluc9_surv_data, conf.int = TRUE,
+           palette =  c("#88498F","#1C77C3", "#4C4C4F","#196F0B","#FF6B35"),
+           size = 1.2,
+           linetype = "solid",
+           xlab = "Days at treatment",
+           break.x.by = 5,
+           break.y.by = .1,
+           legend = c(0.89,0.754),
+           xlim = c(0,60,5),
+           legend.labs = c("16C","20C","24C","28C","32C"),
+           legend.title = "Temperature",
+           font.tickslab = c (12, "plain", "black"),
+           ggtheme= theme_classic(base_size = 20))
+
+ggsurvplot(fluc12_surv_Temp, data = fluc12_surv_data, conf.int = TRUE,
+           palette =  c("#88498F","#1C77C3", "#4C4C4F","#196F0B","#FF6B35"),
+           size = 1.2,
+           linetype = "solid",
+           xlab = "Days at treatment",
+           break.x.by = 5,
+           break.y.by = .1,
+           legend = c(0.89,0.754),
+           xlim = c(0,60,5),
+           legend.labs = c("16C","20C","24C","28C","32C"),
+           legend.title = "Temperature",
+           font.tickslab = c (12, "plain", "black"),
+           ggtheme= theme_classic(base_size = 20))
+
+#To make pretty plots- Make two figures, one which has just survival data from the fluc exp to illustrate temp differences and then a second one with a panel to show the diff between fluc and const at each temperature.
+const_surv_KM_values$program <- "constant"
+fluc9_surv_KM_values$program <- "fluctuation9"
+fluc12_surv_KM_values$program <- "fluctuation12"
+
+#FINAL SURVIVAL PLOT WITH KM ESTIMATES FROM BOTH THE constant and flucuations
+all.KM.estimates <- NA
+all.KM.estimates <- rbind(const_surv_KM_values, fluc9_surv_KM_values, fluc12_surv_KM_values)
+#rename 'strata' to 'treatment' for more clarifty
+colnames(all.KM.estimates)[colnames(all.KM.estimates)=="temp"] <- "treatment"
+#reorder levels
+all.KM.estimates$program <- factor(all.KM.estimates$program, levels = c("constant", "fluctuation9", "fluctuation12"))
+
+ggplot(data = all.KM.estimates, aes(x=time, y= survival, colour = factor(treatment))) + 
+        scale_colour_manual("Temperature", values = c("purple", "blue", "darkgreen", "darkorange1", "firebrick3","white")) +
+        scale_fill_manual("Temperature", values= c("purple", "blue", "darkgreen", "darkorange1", "firebrick3","white")) +
+        scale_x_continuous(name="Days at treatment", limits = c (0, 60), breaks = seq(0,60,5), expand = c(0.02,0.02)) +
+        scale_y_continuous(name="Survivorship", limits=c(0, 1), breaks = seq(0,1,0.2), expand = c(0.02,0.02)) +
+        #geom_ribbon(aes(ymax = survival + std.err, ymin = survival - std.err, fill = temp), alpha = 0.3, color = NA)+
+        geom_line(aes(linetype = program),size =1.1) +
+        theme_classic( base_size = 20)+
+  theme(legend.position = 'right', panel.background = element_blank(), legend.key = element_rect( colour = NA, fill = NA), panel.border = element_rect(colour = "black", fill=NA, size=.5)) +
+        guides(shape = "none", fill = FALSE) +
+  coord_fixed(ratio = 20)
+
+#Attempt to make a panel like the other ones...
+#I have to remove the 36C treatment
+panel_surv_data <- all.KM.estimates[!all.KM.estimates$treatment==36,]
+panel_surv_data$treatment <- as.factor(panel_surv_data$treatment)
+#panel_surv_data <- droplevels(panel_surv_data)
+
+
+s <- ggplot(data = panel_surv_data, aes(x=time, y= survival, colour = treatment, group = interaction(treatment, program))) + 
+        scale_colour_manual("Temperature", values = c("purple", "blue", "darkgreen", "darkorange1", "firebrick3","white")) +
+        scale_fill_manual("Temperature", values= c("purple", "blue", "darkgreen", "darkorange1", "firebrick3","white")) +
+        scale_linetype_manual("Program", values = c("solid", "longdash", "dotted"))+ 
+        scale_x_continuous(name="Days at treatment", limits = c (0, 75), breaks = seq(0,70,10), expand = c(0.02,0.02)) +
+        scale_y_continuous(name="Survivorship", limits=c(0, 1), breaks = seq(0,1,0.25), expand = c(0.02,0.02)) +
+        geom_ribbon(aes(ymax = survival + st.error, ymin = ifelse(survival-st.error <0, 0, survival-st.error), fill = treatment), alpha = 0.3, color = NA)+
+        geom_line(aes(linetype = program),size =1.1) +
+        theme_classic( base_size = 14)+
+  theme(legend.position = 'none', panel.background = element_blank(), legend.key = element_rect( colour = NA, fill = NA), panel.border = element_rect(colour = "black", fill=NA, size=.5)) +
+        guides(shape = "none", fill = FALSE)
+
+s
+#Grid layout to isolate the effects
+plot.survivorship <- s + facet_grid(treatment ~ .) + theme(strip.background = element_blank(), strip.text = element_blank()) #+ coord_fixed( ratio = 20)
+plot.survivorship
+output <- ggarrange(plot.survivorship, labels = c("A"), font.label = list(size =14))
+ggsave("plots/survivorplot_paneltemp.png", output, path = NULL, scale = 1, width = 3.5, height = 5.5, device = 'png', dpi = 600)
+
+
+#Grid layout to isolate the effects
+plot.survivorship <- s + facet_grid(program ~ .) #+ coord_fixed( ratio = 20)
+plot.survivorship
+output <- ggarrange(plot.survivorship, labels = c("A"), font.label = list(size =20))
+ggsave("plots/survivorplot_panelprogram.png", output, path = NULL, scale = 1, width = 6, height = 8, device = 'png', dpi = 500)
+
+
+
+z <- ggplot(data = panel_surv_data, aes(x=time, y= survival, colour = program, group = interaction(treatment, program))) + 
+        scale_colour_manual("Program", values = c("black", "dodgerblue", "purple")) +
+        scale_fill_manual("Program", values= c("black", "dodgerblue", "purple")) +
+        scale_linetype_manual("Program", values = c("solid", "longdash", "dotted"))+ 
+        scale_x_continuous(name="Days at treatment", limits = c (0, 75), breaks = seq(0,70,10), expand = c(0.02,0.02)) +
+        scale_y_continuous(name="Survivorship", limits=c(0, 1), breaks = seq(0,1,0.25), expand = c(0.02,0.02)) +
+        geom_ribbon(aes(ymax = survival + st.error, ymin = ifelse(survival-st.error <0, 0, survival-st.error), fill = program), alpha = 0.3, color = NA)+
+        geom_line(aes(linetype = program),size =1.1) +
+        theme_classic( base_size = 14)+
+  theme(legend.position = 'none', panel.background = element_blank(), legend.key = element_rect( colour = NA, fill = NA), panel.border = element_rect(colour = "black", fill=NA, size=.5)) +
+        guides(shape = "none", fill = FALSE)
+
+z
+#Grid layout to isolate the effects
+plot.survivorship <- z + facet_grid(treatment ~ .)
+plot.survivorship
+output <- ggarrange(plot.survivorship, labels = c("A"), font.label = list(size =14))
+ggsave("plots/survivorplot_paneltemp2.png", output, path = NULL, scale = 1, width = 3.5, height = 5.5, device = 'png', dpi = 600)
+
+#Need to have legend on a graph and coppy paste --> or add survival and fecundity together and place legend on bottom
+
+#Look at statistical differences between temperature treatments across programs (aka 16C at constant, vs fluc(1) vs fluc(2))
+const_surv_data$program <- "constant"
+fluc9_surv_data$program <- "dtr 9"
+fluc12_surv_data$program <- "dtr 12"
+
+#Combine all data
+all_surv_data = rbind(const_surv_data, fluc9_surv_data, fluc12_surv_data)
+#Subset by temperature
+all_16_surv_data <- subset(all_surv_data, Treatment == 16)
+all_20_surv_data <- subset(all_surv_data, Treatment == 20)
+all_24_surv_data <- subset(all_surv_data, Treatment == 24)
+all_28_surv_data <- subset(all_surv_data, Treatment == 28)
+all_32_surv_data <- subset(all_surv_data, Treatment == 32)
+
+program.diff.Temp16 <- survdiff(Surv(Day,Event) ~ program, data = all_16_surv_data)
+program.diff.Temp16 #Chisq= 9.6  on 2 degrees of freedom, p= 0.00819 
+program.diff.Temp20 <- survdiff(Surv(Day,Event) ~ program, data = all_20_surv_data)
+program.diff.Temp20 #4.2  on 2 degrees of freedom, p= 0.122 
+program.diff.Temp24 <- survdiff(Surv(Day,Event) ~ program, data = all_24_surv_data)
+program.diff.Temp24 #9.1  on 2 degrees of freedom, p= 0.0107 
+program.diff.Temp28 <- survdiff(Surv(Day,Event) ~ program, data = all_28_surv_data)
+program.diff.Temp28 # 19.2  on 2 degrees of freedom, p= 6.91e-05 
+program.diff.Temp32 <- survdiff(Surv(Day,Event) ~ program, data = all_32_surv_data)
+program.diff.Temp32 # 13.8  on 2 degrees of freedom, p= 0.00103
+
+##Program was significan P< 0.01 for T=32C,28C, and 16C; P <0.05 for 24C; and NS for 20C
+
+```
+
+Make a figure to highlight the differences in median survival time (use gompertz fits to survivorship and then plot where gompertz = 0.5) This will be more accurate since individuals alive at the end were censored
+
+GOMPERTZ CURVE FITS (overall and to each block) AND LIFE EXPECTANCY ESTIMATES from gompertz fits
+```{r}
+#Generating gompertz curves so that I can integrate under and determine the life expectancy for the fluctuation experiment
+
+#########DTR 9 FIRST ############
+###DTR 9 DTR 9 DTR 9 DTR 9 ####
+
+#Subsetting each temperature
+KM_fluc16 <- subset(fluc9_surv_KM_values, temp == 16)
+KM_fluc20 <- subset(fluc9_surv_KM_values, temp == 20)
+KM_fluc24 <- subset(fluc9_surv_KM_values, temp == 24)
+KM_fluc28 <- subset(fluc9_surv_KM_values, temp == 28)
+KM_fluc32 <- subset(fluc9_surv_KM_values, temp == 32)
+
+#Fitting a gompertz to each temp in the fluctuation program
+library(easynls)
+#Due to the way nls works I need to create a new dataframe with only two columns the first containing the age (day) and the second being the KM survival estimate
+
+#OVERALL GOMPTZ FITS
+KM_F_16 <- cbind(KM_fluc16$time,KM_fluc16$survival)
+KM_F_16 <- as.data.frame(KM_F_16)
+gomp_fluc16 <- nlsfit(KM_F_16, model =10, start = c(1.1, .01, -0.04))
+gomp_fluc16$Parameters
+#coefficient a	1.2589			
+#coefficient b	0.2203			
+#coefficient c	-0.0376
+gomp_fluc16_func <- function(x) {1.2589*exp(-(0.2203)*exp(-(-0.0376)*x))}
+
+KM_F_20 <- cbind(KM_fluc20$time,KM_fluc20$survival)
+KM_F_20 <- as.data.frame(KM_F_20)
+gomp_fluc20 <- nlsfit(KM_F_20, model =10, start = c(1.1, .01, -0.04))
+gomp_fluc20$Parameters
+#coefficient a	1.4890			
+#coefficient b	0.3263			
+#coefficient c	-0.0361
+gomp_fluc20_func <- function(x) {1.4890*exp(-(0.3263)*exp(-(-0.0361)*x))}
+
+KM_F_24 <- cbind(KM_fluc24$time,KM_fluc24$survival)
+KM_F_24 <- as.data.frame(KM_F_24)
+gomp_fluc24 <- nlsfit(KM_F_24, model =10, start = c(1.1, .3, -0.04))
+gomp_fluc24$Parameters
+#coefficient a	1.7470			
+#coefficient b	0.5256			
+#coefficient c	-0.0306	
+gomp_fluc24_func <- function(x) {1.7470*exp(-(0.5256)*exp(-(-0.0306)*x))}
+
+KM_F_28 <- cbind(KM_fluc28$time,KM_fluc28$survival)
+KM_F_28 <- as.data.frame(KM_F_28)
+gomp_fluc28 <- nlsfit(KM_F_28, model =10, start = c(2, .5, -0.04))
+gomp_fluc28$Parameters
+#coefficient a	1.6045			
+#coefficient b	0.4250			
+#coefficient c	-0.0495	
+gomp_fluc28_func <- function(x) {1.6045*exp(-(0.4250)*exp(-(-0.0495)*x))}
+
+KM_F_32 <- cbind(KM_fluc32$time,KM_fluc32$survival)
+KM_F_32 <- as.data.frame(KM_F_32)
+gomp_fluc32 <- nlsfit(KM_F_32, model =10, start = c(1.2, .5, -0.04))
+gomp_fluc32$Parameters
+#coefficient a	1.6018		
+#coefficient b	0.4371			
+#coefficient c	-0.0849	
+gomp_fluc32_func <- function(x) {1.6018*exp(-(0.4371)*exp(-(-0.0849)*x))}
+
+#########DTR 12############
+###DTR 12 DTR 12 DTR 12 DTR 12 ####
+
+#Subsetting each temperature
+KM_dtr12_fluc16 <- subset(fluc12_surv_KM_values, temp == 16)
+KM_dtr12_fluc20 <- subset(fluc12_surv_KM_values, temp == 20)
+KM_dtr12_fluc24 <- subset(fluc12_surv_KM_values, temp == 24)
+KM_dtr12_fluc28 <- subset(fluc12_surv_KM_values, temp == 28)
+KM_dtr12_fluc32 <- subset(fluc12_surv_KM_values, temp == 32)
+
+KM_F12_16 <- cbind(KM_dtr12_fluc16$time,KM_dtr12_fluc16$survival)
+KM_F12_16 <- as.data.frame(KM_F12_16)
+gomp_dtr12_fluc16 <- nlsfit(KM_F12_16, model =10, start = c(1.1, .3, -0.03))
+gomp_dtr12_fluc16$Parameters
+#coefficient a	1.1457			
+#coefficient b	0.1383			
+#coefficient c	-0.0367
+gomp_dtr12_fluc16_func <- function(x) {1.1457*exp(-(0.1383)*exp(-(-0.0367)*x))}
+
+KM_F12_20 <- cbind(KM_dtr12_fluc20$time,KM_dtr12_fluc20$survival)
+KM_F12_20 <- as.data.frame(KM_F12_20)
+gomp_dtr12_fluc20 <- nlsfit(KM_F12_20, model =10, start = c(1.1, .3, -0.04))
+gomp_dtr12_fluc20$Parameters
+#coefficient a	1.3495		
+#coefficient b	0.3097			
+#coefficient c	-0.0300
+gomp_dtr12_fluc20_func <- function(x) {1.3495*exp(-(0.3097)*exp(-(-0.0300)*x))}
+
+KM_F12_24 <- cbind(KM_dtr12_fluc24$time,KM_dtr12_fluc24$survival)
+KM_F12_24 <- as.data.frame(KM_F12_24)
+gomp_dtr12_fluc24 <- nlsfit(KM_F12_24, model =10, start = c(1.1, .3, -0.04))
+gomp_dtr12_fluc24$Parameters
+#coefficient a	1.9230			
+#coefficient b	0.6348		
+#coefficient c	-0.0263	
+gomp_dtr12_fluc24_func <- function(x) {1.9230*exp(-(0.6348)*exp(-(-0.0263)*x))}
+
+KM_F12_28 <- cbind(KM_dtr12_fluc28$time,KM_dtr12_fluc28$survival)
+KM_F12_28 <- as.data.frame(KM_F12_28)
+gomp_dtr12_fluc28 <- nlsfit(KM_F12_28, model =10, start = c(2, .5, -0.04))
+gomp_dtr12_fluc28$Parameters
+#coefficient a	2.1546			
+#coefficient b	0.7305			
+#coefficient c	-0.0380	
+gomp_dtr12_fluc28_func <- function(x) {2.1546*exp(-(0.7305)*exp(-(-0.0380)*x))}
+
+KM_F12_32 <- cbind(KM_dtr12_fluc32$time,KM_dtr12_fluc32$survival)
+KM_F12_32 <- as.data.frame(KM_F12_32)
+gomp_dtr12_fluc32 <- nlsfit(KM_F12_32, model =10, start = c(1.2, .5, -0.04))
+gomp_dtr12_fluc32$Parameters
+#coefficient a	1.1515		
+#coefficient b	0.2276			
+#coefficient c	-0.1166	
+gomp_dtr12_fluc32_func <- function(x) {1.1515*exp(-(0.2276)*exp(-(-0.1166)*x))}
+
+
+#DEFINE THE CONSTANT TEMP GOMPTERZ FUNCTIONS - fits were performed previously (Miazgowicz _ constant Temp)
+Gompz_16_func1 <- function(x) {1.2641*exp(-(0.2024)*exp(-(-0.0413)*x))}
+Gompz_20_func1 <- function(x) {1.0382*exp(-(0.0472)*exp(-(-0.0610)*x))}
+Gompz_24_func1 <- function(x) {1.1244*exp(-(0.0786)*exp(-(-0.0555)*x))}
+Gompz_28_func1 <- function(x) {1.1119*exp(-(0.1234)*exp(-(-0.0618)*x))}
+Gompz_32_func1 <- function(x) {1.5111*exp(-(0.4227)*exp(-(-0.0650)*x))}
+
+
+```
+
+##Generate TEMPERATURE | BLOCK combos for life expectancy for both fluctuation programs
+##ALSO use kaplan-meier estimates on TEMPERATURE | BLOCK combos for both fluctuation programs and constant temp for lx in lifetable analysis
+```{r}
+######Perfrom everything with the dtr9 dataset and then repeat with the dtr 12 dataset
+
+#Step 1: Generate Block specific KM estimates
+KM_DTR9_16_B1 <- subset(fluc9_surv_data, Treatment == 16 & Block == 1, select = c(Event, Day))
+KM_DTR9_16_B2 <- subset(fluc9_surv_data, Treatment == 16 & Block == 2, select = c(Event, Day))
+KM_DTR9_20_B1 <- subset(fluc9_surv_data, Treatment == 20 & Block == 1, select = c(Event, Day))
+KM_DTR9_20_B2 <- subset(fluc9_surv_data, Treatment == 20 & Block == 2, select = c(Event, Day))
+KM_DTR9_24_B1 <- subset(fluc9_surv_data, Treatment == 24 & Block == 1, select = c(Event, Day))
+KM_DTR9_24_B2 <- subset(fluc9_surv_data, Treatment == 24 & Block == 2, select = c(Event, Day))
+KM_DTR9_28_B1 <- subset(fluc9_surv_data, Treatment == 28 & Block == 1, select = c(Event, Day))
+KM_DTR9_28_B2 <- subset(fluc9_surv_data, Treatment == 28 & Block == 2, select = c(Event, Day))
+KM_DTR9_32_B1 <- subset(fluc9_surv_data, Treatment == 32 & Block == 1, select = c(Event, Day))
+KM_DTR9_32_B2 <- subset(fluc9_surv_data, Treatment == 32 & Block == 2, select = c(Event, Day))
+
+
+KM_DTR9_16_B1 <- survfit(Surv(Day,Event) ~ 1, data = KM_DTR9_16_B1)
+KM_DTR9_16_B2 <- survfit(Surv(Day,Event) ~ 1, data = KM_DTR9_16_B2)
+KM_DTR9_20_B1 <- survfit(Surv(Day,Event) ~ 1, data = KM_DTR9_20_B1)
+KM_DTR9_20_B2 <- survfit(Surv(Day,Event) ~ 1, data = KM_DTR9_20_B2)
+KM_DTR9_24_B1 <- survfit(Surv(Day,Event) ~ 1, data = KM_DTR9_24_B1)
+KM_DTR9_24_B2 <- survfit(Surv(Day,Event) ~ 1, data = KM_DTR9_24_B2)
+KM_DTR9_28_B1 <- survfit(Surv(Day,Event) ~ 1, data = KM_DTR9_28_B1)
+KM_DTR9_28_B2 <- survfit(Surv(Day,Event) ~ 1, data = KM_DTR9_28_B2)
+KM_DTR9_32_B1 <- survfit(Surv(Day,Event) ~ 1, data = KM_DTR9_32_B1)
+KM_DTR9_32_B2 <- survfit(Surv(Day,Event) ~ 1, data = KM_DTR9_32_B2)
+
+
+temp16DTR9_B1_KM_values <- fortify(KM_DTR9_16_B1)
+temp16DTR9_B1_KM_values <- cbind(temp16DTR9_B1_KM_values$time, temp16DTR9_B1_KM_values$surv)
+temp16DTR9_B1_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp16DTR9_B1_KM_values)
+write.csv(temp16DTR9_B1_KM_values, "data/temp16DTR9_B1_KM_values.csv", row.names = FALSE)
+
+temp16DTR9_B2_KM_values <- fortify(KM_DTR9_16_B2)
+temp16DTR9_B2_KM_values <- cbind(temp16DTR9_B2_KM_values$time, temp16DTR9_B2_KM_values$surv)
+temp16DTR9_B2_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp16DTR9_B2_KM_values)
+write.csv(temp16DTR9_B2_KM_values, "data/temp16DTR9_B2_KM_values.csv", row.names = FALSE)
+
+temp20DTR9_B1_KM_values <- fortify(KM_DTR9_20_B1)
+temp20DTR9_B1_KM_values <- cbind(temp20DTR9_B1_KM_values$time, temp20DTR9_B1_KM_values$surv)
+temp20DTR9_B1_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp20DTR9_B1_KM_values)
+write.csv(temp20DTR9_B1_KM_values, "data/temp20DTR9_B1_KM_values.csv", row.names = FALSE)
+
+temp20DTR9_B2_KM_values <- fortify(KM_DTR9_20_B2)
+temp20DTR9_B2_KM_values <- cbind(temp20DTR9_B2_KM_values$time, temp20DTR9_B2_KM_values$surv)
+temp20DTR9_B2_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp20DTR9_B2_KM_values)
+write.csv(temp20DTR9_B2_KM_values, "data/temp20DTR9_B2_KM_values.csv", row.names = FALSE)
+
+temp24DTR9_B1_KM_values <- fortify(KM_DTR9_24_B1)
+temp24DTR9_B1_KM_values <- cbind(temp24DTR9_B1_KM_values$time, temp24DTR9_B1_KM_values$surv)
+temp24DTR9_B1_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp24DTR9_B1_KM_values)
+write.csv(temp24DTR9_B1_KM_values, "data/temp24DTR9_B1_KM_values.csv", row.names = FALSE)
+
+temp24DTR9_B2_KM_values <- fortify(KM_DTR9_24_B2)
+temp24DTR9_B2_KM_values <- cbind(temp24DTR9_B2_KM_values$time, temp24DTR9_B2_KM_values$surv)
+temp24DTR9_B2_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp24DTR9_B2_KM_values)
+write.csv(temp24DTR9_B2_KM_values, "data/temp24DTR9_B2_KM_values.csv", row.names = FALSE)
+
+temp28DTR9_B1_KM_values <- fortify(KM_DTR9_28_B1)
+temp28DTR9_B1_KM_values <- cbind(temp28DTR9_B1_KM_values$time, temp28DTR9_B1_KM_values$surv)
+temp28DTR9_B1_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp28DTR9_B1_KM_values)
+write.csv(temp28DTR9_B1_KM_values, "data/temp28DTR9_B1_KM_values.csv", row.names = FALSE)
+
+temp28DTR9_B2_KM_values <- fortify(KM_DTR9_28_B2)
+temp28DTR9_B2_KM_values <- cbind(temp28DTR9_B2_KM_values$time, temp28DTR9_B2_KM_values$surv)
+temp28DTR9_B2_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp28DTR9_B2_KM_values)
+write.csv(temp28DTR9_B2_KM_values, "data/temp28DTR9_B2_KM_values.csv", row.names = FALSE)
+
+temp32DTR9_B1_KM_values <- fortify(KM_DTR9_32_B1)
+temp32DTR9_B1_KM_values <- cbind(temp32DTR9_B1_KM_values$time, temp32DTR9_B1_KM_values$surv)
+temp32DTR9_B1_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp32DTR9_B1_KM_values)
+write.csv(temp32DTR9_B1_KM_values, "data/temp32DTR9_B1_KM_values.csv", row.names = FALSE)
+
+temp32DTR9_B2_KM_values <- fortify(KM_DTR9_32_B2)
+temp32DTR9_B2_KM_values <- cbind(temp32DTR9_B2_KM_values$time, temp32DTR9_B2_KM_values$surv)
+temp32DTR9_B2_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp32DTR9_B2_KM_values)
+write.csv(temp32DTR9_B2_KM_values, "data/temp32DTR9_B2_KM_values.csv", row.names = FALSE)
+
+
+#1 - Temp16_Block1
+gompT16DTR9B1 <- nlsfit(temp16DTR9_B1_KM_values, model = 10, start = c(1,.05, -0.05))
+gompT16DTR9B1
+#coefficient a	1.3751			#coefficient b	0.3063			#coefficient c	-0.0364	
+gompT16DTR9B1_func1 <- function(x) {1.3751*exp(-(0.3063)*exp(-(-0.0364)*x))}
+#2 - Temp16_Block2
+gompT16DTR9B2 <- nlsfit(temp16DTR9_B2_KM_values, model = 10, start = c(1,.05, -0.05))
+gompT16DTR9B2
+#coefficient a	1.1213			#coefficient b	0.1256			#coefficient c	-0.0436	
+gompT16DTR9B2_func1 <- function(x) {1.1213*exp(-(0.1256)*exp(-(-0.0436)*x))}
+
+
+#3 - Temp20_Block1
+gompT20DTR9B1 <- nlsfit(temp20DTR9_B1_KM_values, model = 10, start = c(1,.05, -0.1))
+gompT20DTR9B1
+#coefficient a	1.1968			#coefficient b	0.1563			#coefficient c	-0.0592	
+gompT20DTR9B1_func1 <- function(x) {1.1968*exp(-(0.1563)*exp(-(-0.0592)*x))}
+#4 - Temp20_Block2
+gompT20DTR9B2 <- nlsfit(temp20DTR9_B2_KM_values, model = 10, start = c(1,.05, -0.1))
+gompT20DTR9B2
+#coefficient a	1.4721			#coefficient b	0.3325			#coefficient c	-0.0301	
+gompT20DTR9B2_func1 <- function(x) {1.4721*exp(-(0.3325)*exp(-(-0.0301)*x))}
+
+#5 - Temp24_Block1
+gompT24DTR9B1 <- nlsfit(temp24DTR9_B1_KM_values, model = 10, start = c(1,.05, -0.1))
+gompT24DTR9B1
+#coefficient a	 1.1942			#coefficient b	0.1684			#coefficient c	-0.0595	
+gompT24DTR9B1_func1 <- function(x) { 1.1942*exp(-(0.1684)*exp(-(-0.0595)*x))}
+#6 - Temp24_Block2
+gompT24DTR9B2 <- nlsfit(temp24DTR9_B2_KM_values, model = 10, start = c(1,.05, -0.1))
+gompT24DTR9B2
+#coefficient a	1.8748			#coefficient b	0.6364			#coefficient c	-0.0241	
+gompT24DTR9B2_func1 <- function(x) {1.8748*exp(-(0.6364)*exp(-(-0.0241)*x))}
+
+#7 - Temp28_Block1
+gompT28DTR9B1 <- nlsfit(temp28DTR9_B1_KM_values, model = 10, start = c(1,.05, -0.1))
+gompT28DTR9B1
+#coefficient a	1.8670			#coefficient b	0.5581			#coefficient c	-0.0456	
+gompT28DTR9B1_func1 <- function(x) {1.8670*exp(-(0.5581)*exp(-(-0.0456)*x))}
+#8 - Temp28_Block2
+gompT28DTR9B2 <- nlsfit(temp28DTR9_B2_KM_values, model = 10, start = c(1,.05, -0.1))
+gompT28DTR9B2
+#coefficient a	1.3275			#coefficient b	0.2943			#coefficient c	-0.0551	
+gompT28DTR9B2_func1 <- function(x) {1.3275*exp(-(0.2943)*exp(-(-0.0551)*x))}
+
+#9 - Temp32_Block1
+gompT32DTR9B1 <- nlsfit(temp32DTR9_B1_KM_values, model = 10, start = c(2,1, -0.1))
+gompT32DTR9B1
+#coefficient a	1.3470			#coefficient b	0.2089			#coefficient c	-0.1400	
+gompT32DTR9B1_func1 <- function(x) {1.3470*exp(-(0.2089)*exp(-(-0.1400)*x))}
+#10 - Temp32_Block2
+gompT32DTR9B2 <- nlsfit(temp32DTR9_B2_KM_values, model = 10, start = c(1,.05, -0.1))
+gompT32DTR9B2
+#coefficient a	1.9981			#coefficient b	0.7187			#coefficient c	-0.0567	
+gompT32DTR9B2_func1 <- function(x) {1.9981*exp(-(0.7187)*exp(-(-0.0567)*x))}
+
+
+life16DTR9_B1 <- integrate(gompT16DTR9B1_func1, lower = 0, upper = 100) #33.634
+life16DTR9_B2 <- integrate(gompT16DTR9B2_func1, lower = 0, upper = 100) #41.567
+
+life20DTR9_B1 <- integrate(gompT20DTR9B1_func1, lower = 0, upper = 100) #28.892
+life20DTR9_B2 <- integrate(gompT20DTR9B2_func1, lower = 0, upper = 100) #40.619
+
+life24DTR9_B1 <- integrate(gompT24DTR9B1_func1, lower = 0, upper = 100) #27.412
+life24DTR9_B2 <- integrate(gompT24DTR9B2_func1, lower = 0, upper = 100) #32.869
+
+life28DTR9_B1 <- integrate(gompT28DTR9B1_func1, lower = 0, upper = 100) #20.265
+life28DTR9_B2 <- integrate(gompT28DTR9B2_func1, lower = 0, upper = 100) #22.163
+
+life32DTR9_B1 <- integrate(gompT32DTR9B1_func1, lower = 0, upper = 100) #11.422
+life32DTR9_B2 <- integrate(gompT32DTR9B2_func1, lower = 0, upper = 100) #12.715
+
+
+
+#Combining all values into a dataframe
+treatment <- c(16,16,20,20,24,24,28,28,32,32)
+lifevalues <- c(life16DTR9_B1$value,life16DTR9_B2$value,life20DTR9_B1$value, life20DTR9_B2$value, life24DTR9_B1$value,life24DTR9_B2$value, life28DTR9_B1$value,life28DTR9_B2$value, life32DTR9_B1$value,life32DTR9_B2$value)
+blockvalues <- c(1,2,1,2,1,2,1,2,1,2)
+life.expect.dtr9 <- as.data.frame(cbind(blockvalues,treatment,lifevalues))
+
+#Averaging all values for MEAN, and sEM - add in right dataframes
+life.summary.dtr9 <- summarise(group_by(life.expect.dtr9, treatment), ave = mean(lifevalues), SEM = sd(lifevalues)/sqrt(length(lifevalues)))
+
+life.summary.dtr9$program <- "fluctuation9"
+
+#Export this for use in excel
+write.csv(life.expect.dtr9, "data/lifeexpectDTR9.replicate.ave.fromGOMPZ.csv")
+
+###############
+####
+####### REPEAT CODE SEGEMENT BUT USING THE DTR 12 DATASET
+####
+##################
+
+#Step 1: Generate Block specific KM estimates
+KM_DTR12_16_B1 <- subset(fluc12_surv_data, Treatment == 16 & Block == 1, select = c(Event, Day))
+KM_DTR12_16_B2 <- subset(fluc12_surv_data, Treatment == 16 & Block == 2, select = c(Event, Day))
+KM_DTR12_20_B1 <- subset(fluc12_surv_data, Treatment == 20 & Block == 1, select = c(Event, Day))
+KM_DTR12_20_B2 <- subset(fluc12_surv_data, Treatment == 20 & Block == 2, select = c(Event, Day))
+KM_DTR12_24_B1 <- subset(fluc12_surv_data, Treatment == 24 & Block == 1, select = c(Event, Day))
+KM_DTR12_24_B2 <- subset(fluc12_surv_data, Treatment == 24 & Block == 2, select = c(Event, Day))
+KM_DTR12_28_B1 <- subset(fluc12_surv_data, Treatment == 28 & Block == 1, select = c(Event, Day))
+KM_DTR12_28_B2 <- subset(fluc12_surv_data, Treatment == 28 & Block == 2, select = c(Event, Day))
+KM_DTR12_32_B1 <- subset(fluc12_surv_data, Treatment == 32 & Block == 1, select = c(Event, Day))
+KM_DTR12_32_B2 <- subset(fluc12_surv_data, Treatment == 32 & Block == 2, select = c(Event, Day))
+
+
+KM_DTR12_16_B1 <- survfit(Surv(Day,Event) ~ 1, data = KM_DTR12_16_B1)
+KM_DTR12_16_B2 <- survfit(Surv(Day,Event) ~ 1, data = KM_DTR12_16_B2)
+KM_DTR12_20_B1 <- survfit(Surv(Day,Event) ~ 1, data = KM_DTR12_20_B1)
+KM_DTR12_20_B2 <- survfit(Surv(Day,Event) ~ 1, data = KM_DTR12_20_B2)
+KM_DTR12_24_B1 <- survfit(Surv(Day,Event) ~ 1, data = KM_DTR12_24_B1)
+KM_DTR12_24_B2 <- survfit(Surv(Day,Event) ~ 1, data = KM_DTR12_24_B2)
+KM_DTR12_28_B1 <- survfit(Surv(Day,Event) ~ 1, data = KM_DTR12_28_B1)
+KM_DTR12_28_B2 <- survfit(Surv(Day,Event) ~ 1, data = KM_DTR12_28_B2)
+KM_DTR12_32_B1 <- survfit(Surv(Day,Event) ~ 1, data = KM_DTR12_32_B1)
+KM_DTR12_32_B2 <- survfit(Surv(Day,Event) ~ 1, data = KM_DTR12_32_B2)
+
+
+temp16DTR12_B1_KM_values <- fortify(KM_DTR12_16_B1)
+temp16DTR12_B1_KM_values <- cbind(temp16DTR12_B1_KM_values$time, temp16DTR12_B1_KM_values$surv)
+temp16DTR12_B1_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp16DTR12_B1_KM_values)
+write.csv(temp16DTR12_B1_KM_values, "data/temp16DTR12_B1_KM_values.csv", row.names = FALSE)
+
+temp16DTR12_B2_KM_values <- fortify(KM_DTR12_16_B2)
+temp16DTR12_B2_KM_values <- cbind(temp16DTR12_B2_KM_values$time, temp16DTR12_B2_KM_values$surv)
+temp16DTR12_B2_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp16DTR12_B2_KM_values)
+write.csv(temp16DTR12_B2_KM_values, "data/temp16DTR12_B2_KM_values.csv", row.names = FALSE)
+
+temp20DTR12_B1_KM_values <- fortify(KM_DTR12_20_B1)
+temp20DTR12_B1_KM_values <- cbind(temp20DTR12_B1_KM_values$time, temp20DTR12_B1_KM_values$surv)
+temp20DTR12_B1_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp20DTR12_B1_KM_values)
+write.csv(temp20DTR12_B1_KM_values, "data/temp20DTR12_B1_KM_values.csv", row.names = FALSE)
+
+temp20DTR12_B2_KM_values <- fortify(KM_DTR12_20_B2)
+temp20DTR12_B2_KM_values <- cbind(temp20DTR12_B2_KM_values$time, temp20DTR12_B2_KM_values$surv)
+temp20DTR12_B2_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp20DTR12_B2_KM_values)
+write.csv(temp20DTR12_B2_KM_values, "data/temp20DTR12_B2_KM_values.csv", row.names = FALSE)
+
+temp24DTR12_B1_KM_values <- fortify(KM_DTR12_24_B1)
+temp24DTR12_B1_KM_values <- cbind(temp24DTR12_B1_KM_values$time, temp24DTR12_B1_KM_values$surv)
+temp24DTR12_B1_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp24DTR12_B1_KM_values)
+write.csv(temp24DTR12_B1_KM_values, "data/temp24DTR12_B1_KM_values.csv", row.names = FALSE)
+
+temp24DTR12_B2_KM_values <- fortify(KM_DTR12_24_B2)
+temp24DTR12_B2_KM_values <- cbind(temp24DTR12_B2_KM_values$time, temp24DTR12_B2_KM_values$surv)
+temp24DTR12_B2_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp24DTR12_B2_KM_values)
+write.csv(temp24DTR12_B2_KM_values, "data/temp24DTR12_B2_KM_values.csv", row.names = FALSE)
+
+temp28DTR12_B1_KM_values <- fortify(KM_DTR12_28_B1)
+temp28DTR12_B1_KM_values <- cbind(temp28DTR12_B1_KM_values$time, temp28DTR12_B1_KM_values$surv)
+temp28DTR12_B1_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp28DTR12_B1_KM_values)
+write.csv(temp28DTR12_B1_KM_values, "data/temp28DTR12_B1_KM_values.csv", row.names = FALSE)
+
+temp28DTR12_B2_KM_values <- fortify(KM_DTR12_28_B2)
+temp28DTR12_B2_KM_values <- cbind(temp28DTR12_B2_KM_values$time, temp28DTR12_B2_KM_values$surv)
+temp28DTR12_B2_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp28DTR12_B2_KM_values)
+write.csv(temp28DTR12_B2_KM_values, "data/temp28DTR12_B2_KM_values.csv", row.names = FALSE)
+
+temp32DTR12_B1_KM_values <- fortify(KM_DTR12_32_B1)
+temp32DTR12_B1_KM_values <- cbind(temp32DTR12_B1_KM_values$time, temp32DTR12_B1_KM_values$surv)
+temp32DTR12_B1_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp32DTR12_B1_KM_values)
+write.csv(temp32DTR12_B1_KM_values, "data/temp32DTR12_B1_KM_values.csv", row.names = FALSE)
+
+temp32DTR12_B2_KM_values <- fortify(KM_DTR12_32_B2)
+temp32DTR12_B2_KM_values <- cbind(temp32DTR12_B2_KM_values$time, temp32DTR12_B2_KM_values$surv)
+temp32DTR12_B2_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp32DTR12_B2_KM_values)
+write.csv(temp32DTR12_B2_KM_values, "data/temp32DTR12_B2_KM_values.csv", row.names = FALSE)
+
+#export block specific KM values for use in lifetable analysis
+
+#1 - Temp16_Block1
+gompT16DTR12B1 <- nlsfit(temp16DTR12_B1_KM_values, model = 10, start = c(1,.05, -0.05))
+gompT16DTR12B1$Parameters
+#coefficient a	1.0744			#coefficient b	0.0903			#coefficient c	-0.0415	
+gompT16DTR12B1_func1 <- function(x) {1.0744*exp(-(0.0903)*exp(-(-0.0415)*x))}
+#2 - Temp16_Block2
+gompT16DTR12B2 <- nlsfit(temp16DTR12_B2_KM_values, model = 10, start = c(1,.05, -0.05))
+gompT16DTR12B2$Parameters
+#coefficient a	1.2420			#coefficient b	0.2096			#coefficient c	-0.0328	
+gompT16DTR12B2_func1 <- function(x) {1.2420*exp(-(0.2096)*exp(-(-0.0328)*x))}
+
+
+#3 - Temp20_Block1
+gompT20DTR12B1 <- nlsfit(temp20DTR12_B1_KM_values, model = 10, start = c(1,.05, -0.1))
+gompT20DTR12B1$Parameters
+#coefficient a	1.1015			#coefficient b	0.0988			#coefficient c	-0.0424	
+gompT20DTR12B1_func1 <- function(x) {1.1015*exp(-(0.0988)*exp(-(-0.0424)*x))}
+#4 - Temp20_Block2
+gompT20DTR12B2 <- nlsfit(temp20DTR12_B2_KM_values, model = 10, start = c(1,.05, -0.1))
+gompT20DTR12B2$Parameters
+#coefficient a	2.7196			#coefficient b	0.9809			#coefficient c	-0.0202	
+gompT20DTR12B2_func1 <- function(x) {2.7196*exp(-(0.9809)*exp(-(-0.0202)*x))}
+
+#5 - Temp24_Block1
+gompT24DTR12B1 <- nlsfit(temp24DTR12_B1_KM_values, model = 10, start = c(1,.05, -0.1))
+gompT24DTR12B1$Parameters
+#coefficient a	 1.0151			#coefficient b	0.0807			#coefficient c	-0.0576	
+gompT24DTR12B1_func1 <- function(x) { 1.0151*exp(-(0.0807)*exp(-(-0.0576)*x))}
+#6 - Temp24_Block2
+gompT24DTR12B2 <- nlsfit(temp24DTR12_B2_KM_values, model = 10, start = c(1,.05, -0.1))
+gompT24DTR12B2$Parameters
+#coefficient a	3.4675			#coefficient b	1.1727			#coefficient c	-0.0234	
+gompT24DTR12B2_func1 <- function(x) {3.4675*exp(-(1.1727)*exp(-(-0.0234)*x))}
+
+#7 - Temp28_Block1
+gompT28DTR12B1 <- nlsfit(temp28DTR12_B1_KM_values, model = 10, start = c(1,.05, -0.1))
+gompT28DTR12B1$Parameters
+#coefficient a	1.5634			#coefficient b	0.4610			#coefficient c	-0.0414	
+gompT28DTR12B1_func1 <- function(x) {1.5634*exp(-(0.4610)*exp(-(-0.0414)*x))}
+#8 - Temp28_Block2
+gompT28DTR12B2 <- nlsfit(temp28DTR12_B2_KM_values, model = 10, start = c(1,.05, -0.1))
+gompT28DTR12B2$Parameters
+#coefficient a	1.9483			#coefficient b	0.5879			#coefficient c	-0.0566	
+gompT28DTR12B2_func1 <- function(x) {1.9483*exp(-(0.5879)*exp(-(-0.0566)*x))}
+
+#9 - Temp32_Block1
+gompT32DTR12B1 <- nlsfit(temp32DTR12_B1_KM_values, model = 10, start = c(2,1, -0.1))
+gompT32DTR12B1$Parameters
+#coefficient a	1.2807			#coefficient b	0.3761			#coefficient c	-0.0897	
+gompT32DTR12B1_func1 <- function(x) {1.2807*exp(-(0.3761)*exp(-(-0.0897)*x))}
+#10 - Temp32_Block2
+gompT32DTR12B2 <- nlsfit(temp32DTR12_B2_KM_values, model = 10, start = c(1,.05, -0.1))
+gompT32DTR12B2$Parameters
+#coefficient a	1.0458			#coefficient b	0.0974			#coefficient c	-0.1735	
+gompT32DTR12B2_func1 <- function(x) {1.0458*exp(-(0.0974)*exp(-(-0.1735)*x))}
+
+
+life16DTR12_B1 <- integrate(gompT16DTR12B1_func1, lower = 0, upper = 100) #49.58321
+life16DTR12_B2 <- integrate(gompT16DTR12B2_func1, lower = 0, upper = 100) #44.82775
+
+life20DTR12_B1 <- integrate(gompT20DTR12B1_func1, lower = 0, upper = 100) #47.63776
+life20DTR12_B2 <- integrate(gompT20DTR12B2_func1, lower = 0, upper = 100) #30.49085 
+
+life24DTR12_B1 <- integrate(gompT24DTR12B1_func1, lower = 0, upper = 100) #35.57964
+life24DTR12_B2 <- integrate(gompT24DTR12B2_func1, lower = 0, upper = 100) #24.51481 
+
+life28DTR12_B1 <- integrate(gompT28DTR12B1_func1, lower = 0, upper = 100) #23.03622
+life28DTR12_B2 <- integrate(gompT28DTR12B2_func1, lower = 0, upper = 100) #16.02799
+
+life32DTR12_B1 <- integrate(gompT32DTR12B1_func1, lower = 0, upper = 100) #10.62511
+life32DTR12_B2 <- integrate(gompT32DTR12B2_func1, lower = 0, upper = 100) #11.13185
+
+
+
+#Combining all values into a dataframe
+treatment <- c(16,16,20,20,24,24,28,28,32,32)
+lifevalues <- c(life16DTR12_B1$value,life16DTR12_B2$value,life20DTR12_B1$value, life20DTR12_B2$value, life24DTR12_B1$value,life24DTR12_B2$value, life28DTR12_B1$value,life28DTR12_B2$value, life32DTR12_B1$value,life32DTR12_B2$value)
+blockvalues <- c(1,2,1,2,1,2,1,2,1,2)
+life.expect.dtr12 <- as.data.frame(cbind(blockvalues,treatment,lifevalues))
+
+#Averaging all values for MEAN, and sEM - add in right dataframes
+life.summary.dtr12 <- summarise(group_by(life.expect.dtr12, treatment), ave = mean(lifevalues), SEM = sd(lifevalues)/sqrt(length(lifevalues)))
+
+life.summary.dtr12$program <- "fluctuation12"
+
+
+#Export this for use in excel
+write.csv(life.expect.dtr12, "data/lifeexpectDTR12.replicate.ave.fromGOMPZ.csv")
+
+
+
+```
+
+Constant temperature block-specific Survfits()
+```{r}
+#Calculating the block-specific kaplan-meier estimates for the constant temp dataset
+#####################################################################################
+
+#Step 1: Generate Block specific KM estimates
+KM_DTR0_16_B2 <- subset(const_surv_data, Treatment == 16 & Block == 2, select = c(Event, Day))
+KM_DTR0_16_B3 <- subset(const_surv_data, Treatment == 16 & Block == 3, select = c(Event, Day))
+KM_DTR0_20_B2 <- subset(const_surv_data, Treatment == 20 & Block == 2, select = c(Event, Day))
+KM_DTR0_20_B3 <- subset(const_surv_data, Treatment == 20 & Block == 3, select = c(Event, Day))
+KM_DTR0_24_B2 <- subset(const_surv_data, Treatment == 24 & Block == 2, select = c(Event, Day))
+KM_DTR0_24_B3 <- subset(const_surv_data, Treatment == 24 & Block == 3, select = c(Event, Day))
+KM_DTR0_28_B2 <- subset(const_surv_data, Treatment == 28 & Block == 2, select = c(Event, Day))
+KM_DTR0_28_B3 <- subset(const_surv_data, Treatment == 28 & Block == 3, select = c(Event, Day))
+KM_DTR0_28_B4 <- subset(const_surv_data, Treatment == 28 & Block == 4, select = c(Event, Day))
+KM_DTR0_32_B2 <- subset(const_surv_data, Treatment == 32 & Block == 2, select = c(Event, Day))
+KM_DTR0_32_B5 <- subset(const_surv_data, Treatment == 32 & Block == 5, select = c(Event, Day))
+KM_DTR0_36_B2 <- subset(const_surv_data, Treatment == 36 & Block == 2, select = c(Event, Day))
+KM_DTR0_36_B5 <- subset(const_surv_data, Treatment == 36 & Block == 5, select = c(Event, Day))
+
+
+KM_DTR0_16_B2 <- survfit(Surv(Day,Event) ~ 1, data = KM_DTR0_16_B2)
+KM_DTR0_16_B3 <- survfit(Surv(Day,Event) ~ 1, data = KM_DTR0_16_B3)
+KM_DTR0_20_B2 <- survfit(Surv(Day,Event) ~ 1, data = KM_DTR0_20_B2)
+KM_DTR0_20_B3 <- survfit(Surv(Day,Event) ~ 1, data = KM_DTR0_20_B3)
+KM_DTR0_24_B2 <- survfit(Surv(Day,Event) ~ 1, data = KM_DTR0_24_B2)
+KM_DTR0_24_B3 <- survfit(Surv(Day,Event) ~ 1, data = KM_DTR0_24_B3)
+KM_DTR0_28_B2 <- survfit(Surv(Day,Event) ~ 1, data = KM_DTR0_28_B2)
+KM_DTR0_28_B3 <- survfit(Surv(Day,Event) ~ 1, data = KM_DTR0_28_B3)
+KM_DTR0_28_B4 <- survfit(Surv(Day,Event) ~ 1, data = KM_DTR0_28_B4)
+KM_DTR0_32_B2 <- survfit(Surv(Day,Event) ~ 1, data = KM_DTR0_32_B2)
+KM_DTR0_32_B5 <- survfit(Surv(Day,Event) ~ 1, data = KM_DTR0_32_B5)
+KM_DTR0_36_B2 <- survfit(Surv(Day,Event) ~ 1, data = KM_DTR0_36_B2)
+KM_DTR0_36_B5 <- survfit(Surv(Day,Event) ~ 1, data = KM_DTR0_36_B5)
+
+temp16DTR0_B2_KM_values <- fortify(KM_DTR0_16_B2)
+temp16DTR0_B2_KM_values <- cbind(temp16DTR0_B2_KM_values$time, temp16DTR0_B2_KM_values$surv)
+temp16DTR0_B2_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp16DTR0_B2_KM_values)
+write.csv(temp16DTR0_B2_KM_values, "data/temp16DTR0_B2_KM_values.csv", row.names = FALSE)
+
+temp16DTR0_B3_KM_values <- fortify(KM_DTR0_16_B3)
+temp16DTR0_B3_KM_values <- cbind(temp16DTR0_B3_KM_values$time, temp16DTR0_B3_KM_values$surv)
+temp16DTR0_B3_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp16DTR0_B3_KM_values)
+write.csv(temp16DTR0_B3_KM_values, "data/temp16DTR0_B3_KM_values.csv", row.names = FALSE)
+
+temp20DTR0_B2_KM_values <- fortify(KM_DTR0_20_B2)
+temp20DTR0_B2_KM_values <- cbind(temp20DTR0_B2_KM_values$time, temp20DTR0_B2_KM_values$surv)
+temp20DTR0_B2_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp20DTR0_B2_KM_values)
+write.csv(temp20DTR0_B2_KM_values, "data/temp20DTR0_B2_KM_values.csv", row.names = FALSE)
+
+temp20DTR0_B3_KM_values <- fortify(KM_DTR0_20_B3)
+temp20DTR0_B3_KM_values <- cbind(temp20DTR0_B3_KM_values$time, temp20DTR0_B3_KM_values$surv)
+temp20DTR0_B3_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp20DTR0_B3_KM_values)
+write.csv(temp20DTR0_B3_KM_values, "data/temp20DTR0_B3_KM_values.csv", row.names = FALSE)
+
+temp24DTR0_B2_KM_values <- fortify(KM_DTR0_24_B2)
+temp24DTR0_B2_KM_values <- cbind(temp24DTR0_B2_KM_values$time, temp24DTR0_B2_KM_values$surv)
+temp24DTR0_B2_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp24DTR0_B2_KM_values)
+write.csv(temp24DTR0_B2_KM_values, "data/temp24DTR0_B2_KM_values.csv", row.names = FALSE)
+
+temp24DTR0_B3_KM_values <- fortify(KM_DTR0_24_B3)
+temp24DTR0_B3_KM_values <- cbind(temp24DTR0_B3_KM_values$time, temp24DTR0_B3_KM_values$surv)
+temp24DTR0_B3_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp24DTR0_B3_KM_values)
+write.csv(temp24DTR0_B3_KM_values, "data/temp24DTR0_B3_KM_values.csv", row.names = FALSE)
+
+temp28DTR0_B2_KM_values <- fortify(KM_DTR0_28_B2)
+temp28DTR0_B2_KM_values <- cbind(temp28DTR0_B2_KM_values$time, temp28DTR0_B2_KM_values$surv)
+temp28DTR0_B2_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp28DTR0_B2_KM_values)
+write.csv(temp28DTR0_B2_KM_values, "data/temp28DTR0_B2_KM_values.csv", row.names = FALSE)
+
+temp28DTR0_B3_KM_values <- fortify(KM_DTR0_28_B3)
+temp28DTR0_B3_KM_values <- cbind(temp28DTR0_B3_KM_values$time, temp28DTR0_B3_KM_values$surv)
+temp28DTR0_B3_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp28DTR0_B3_KM_values)
+write.csv(temp28DTR0_B3_KM_values, "data/temp28DTR0_B3_KM_values.csv", row.names = FALSE)
+
+temp28DTR0_B4_KM_values <- fortify(KM_DTR0_28_B4)
+temp28DTR0_B4_KM_values <- cbind(temp28DTR0_B4_KM_values$time, temp28DTR0_B4_KM_values$surv)
+temp28DTR0_B4_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp28DTR0_B4_KM_values)
+write.csv(temp28DTR0_B4_KM_values, "data/temp28DTR0_B4_KM_values.csv", row.names = FALSE)
+
+temp32DTR0_B2_KM_values <- fortify(KM_DTR0_32_B2)
+temp32DTR0_B2_KM_values <- cbind(temp32DTR0_B2_KM_values$time, temp32DTR0_B2_KM_values$surv)
+temp32DTR0_B2_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp32DTR0_B2_KM_values)
+write.csv(temp32DTR0_B2_KM_values, "data/temp32DTR0_B2_KM_values.csv", row.names = FALSE)
+
+temp32DTR0_B5_KM_values <- fortify(KM_DTR0_32_B5)
+temp32DTR0_B5_KM_values <- cbind(temp32DTR0_B5_KM_values$time, temp32DTR0_B5_KM_values$surv)
+temp32DTR0_B5_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp32DTR0_B5_KM_values)
+write.csv(temp32DTR0_B5_KM_values, "data/temp32DTR0_B5_KM_values.csv", row.names = FALSE)
+
+temp36DTR0_B2_KM_values <- fortify(KM_DTR0_36_B2)
+temp36DTR0_B2_KM_values <- cbind(temp36DTR0_B2_KM_values$time, temp36DTR0_B2_KM_values$surv)
+temp36DTR0_B2_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp36DTR0_B2_KM_values)
+write.csv(temp36DTR0_B2_KM_values, "data/temp36DTR0_B2_KM_values.csv", row.names = FALSE)
+
+temp36DTR0_B5_KM_values <- fortify(KM_DTR0_36_B5)
+temp36DTR0_B5_KM_values <- cbind(temp36DTR0_B5_KM_values$time, temp36DTR0_B5_KM_values$surv)
+temp36DTR0_B5_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp36DTR0_B5_KM_values)
+write.csv(temp36DTR0_B5_KM_values, "data/temp36DTR0_B5_KM_values.csv", row.names = FALSE)
+
+###############################################################################
+#Importing the values for the constant temp dataset - as was prior to 6/14/19
+treatment <- c(16,20,24,28,32)
+ave <- c(37.355426,42.11814,41.190797,28.872523,14.891649)
+SEM <- c(3.9133776,5.3487267,4.0216586,2.325931,1.5981756)
+const.life.expect <- as.data.frame(cbind(treatment,ave,SEM))
+const.life.expect$program <- "constant"
+
+all.life.expect <- rbind(const.life.expect, life.summary.dtr9, life.summary.dtr12)
+all.life.expect$treatment <- as.factor(all.life.expect$treatment)
+#reorder levels
+all.life.expect$program <- factor(all.life.expect$program, levels = c("constant", "fluctuation9", "fluctuation12"))
+
+
+
+#for coloring
+library (RColorBrewer)
+categories <- aggregate(program~treatment,all.life.expect,function(x)length(unique(x)))  #number of sub-category for each category 
+category.palettes <- c("Purples", "Blues", "Greens", "Oranges", "Reds") 
+colors <- unlist(lapply(1:nrow(categories), function(i){colorRampPalette(brewer.pal(9,category.palettes[i])[3:7])(categories[i,2])}))
+names <- sort(unique(all.life.expect$treatment))
+
+#for life expectancy
+ggplot(data = all.life.expect, aes(x=treatment, y=ave, fill = interaction(program,treatment))) +
+  geom_bar(stat = "identity", position = "dodge") + 
+  xlab("Temperature(C)") +
+  scale_fill_manual("Temperature", values = colors, breaks = paste0("1.", names), labels = names)+
+  scale_y_continuous(name = "Life expectancy (E)", limits = c(0,50), breaks = seq(0,50,5)) +
+  geom_errorbar(aes(ymin = ave - SEM, ymax = ave  + SEM), width=0.4, size = 1, position = position_dodge(.9)) +
+  theme_classic(base_size = 20)+
+  theme(legend.position = 'right', panel.background = element_blank(), legend.key = element_rect(colour = NA, fill = NA), panel.border = element_rect(colour="black", fill=NA, size= 0.5))
+
+
+#Make coloring comparable to survivorship figure (black, dodgerblue, purple)
+#for life expectancy
+plot.life.expect <- ggplot(data = all.life.expect, aes(x=treatment, y=ave, fill = interaction(program,treatment))) +
+  geom_bar(stat = "identity", position = "dodge") + 
+  xlab("Temperature(C)") +
+  scale_fill_manual("Temperature", values = c("black", "dodgerblue", "purple","black", "dodgerblue", "purple","black", "dodgerblue", "purple","black", "dodgerblue", "purple","black", "dodgerblue", "purple" ), breaks = paste0("1.", names), labels = names)+
+  scale_y_continuous(name = "Life expectancy", limits = c(0,50), breaks = seq(0,50,5)) +
+  geom_errorbar(aes(ymin = ave - SEM, ymax = ave  + SEM), width=0.4, size = 0.7, position = position_dodge(.9)) +
+  theme_classic(base_size = 14)+
+  theme(legend.position = 'none', panel.background = element_blank(), legend.key = element_rect(colour = NA, fill = NA), panel.border = element_rect(colour="black", fill=NA, size= 0.5))
+
+plot.life.expect
+
+output <- ggarrange(plot.life.expect, labels = c("B"), font.label = list(size =14))
+ggsave("plots/lifeexpect_plot.png", output, path = NULL, scale = 1, width = 3.5, height = 2, device = 'png', dpi = 600)
+
+#Perform stats-- comparison of means at each temperature (or GLMM with correction for multiple comparisons after)
+
+```
+
+##Ploting the gompertz functions over the KM_estimates for the fluctuation program
+```{r}
+
+#Overall km estimates and gompertz fits
+fluc9_surv_KM_values$temp <- as.factor(fluc9_surv_KM_values$temp)
+ggplot(data= fluc9_surv_KM_values, aes(x=time, y= survival, colour = temp, group = temp)) + 
+        scale_colour_manual("Treatment", values= c("purple", "blue", "darkgreen", "darkorange1", "firebrick3")) +
+        scale_fill_manual("Treatment", values= c("purple", "blue", "darkgreen", "darkorange1", "firebrick3")) +
+        scale_x_continuous(name="Days at treatment", limits = c (0, 70), breaks = seq(0,70,5), expand = c(0.02,0.02)) +
+        scale_y_continuous(name="Survivorship", limits=c(0, 1), breaks = seq(0,1,0.1), expand = c(0.02,0.02)) +
+        geom_ribbon(aes(ymax = survival + st.error, ymin = survival - st.error, fill = temp), alpha = 0.3, color = NA)+
+        #geom_point(size = 1.7) +
+        geom_line(size =1.1) +
+        theme_classic( base_size = 20) +
+        theme(legend.position = 'right', panel.background = element_blank(), legend.key = element_rect( colour = NA, fill = NA), panel.border = element_rect(colour = "black", fill=NA, size=.5)) +
+        guides(shape = "none", fill = FALSE) +
+      stat_function(fun = gomp_fluc16_func, colour = "purple", linetype = "dashed", size = 1.2) +
+      stat_function(fun = gomp_fluc20_func, colour = "blue", linetype = "dashed", size = 1.2) +
+      stat_function(fun = gomp_fluc24_func, colour = "darkgreen", linetype = "dashed", size = 1.2) +
+      stat_function(fun = gomp_fluc28_func, colour = "darkorange1", linetype = "dashed", size = 1.2) +
+      stat_function(fun = gomp_fluc32_func, colour = "firebrick3", linetype = "dashed", size = 1.2) 
+      #coord_fixed(ratio = 20)
+
+#plotting for dtr of 12
+fluc12_surv_KM_values$temp <- as.factor (fluc12_surv_KM_values$temp)
+ggplot(data= fluc12_surv_KM_values, aes(x=time, y= survival, colour = temp, group = temp)) + 
+        scale_colour_manual("Treatment", values= c("purple", "blue", "darkgreen", "darkorange1", "firebrick3")) +
+        scale_fill_manual("Treatment", values= c("purple", "blue", "darkgreen", "darkorange1", "firebrick3")) +
+        scale_x_continuous(name="Days at treatment", limits = c (0, 70), breaks = seq(0,70,5), expand = c(0.02,0.02)) +
+        scale_y_continuous(name="Survivorship", limits=c(0, 1), breaks = seq(0,1,0.1), expand = c(0.02,0.02)) +
+        geom_ribbon(aes(ymax = survival + st.error, ymin = survival - st.error, fill = temp), alpha = 0.3, color = NA)+
+        #geom_point(size = 1.7) +
+        geom_line(size =1.1) +
+        theme_classic( base_size = 20) +
+        theme(legend.position = 'right', panel.background = element_blank(), legend.key = element_rect( colour = NA, fill = NA), panel.border = element_rect(colour = "black", fill=NA, size=.5)) +
+        guides(shape = "none", fill = FALSE) +
+      stat_function(fun = gomp_dtr12_fluc16_func, colour = "purple", linetype = "dashed", size = 1.2) +
+      stat_function(fun = gomp_dtr12_fluc20_func, colour = "blue", linetype = "dashed", size = 1.2) +
+      stat_function(fun = gomp_dtr12_fluc24_func, colour = "darkgreen", linetype = "dashed", size = 1.2) +
+      stat_function(fun = gomp_dtr12_fluc28_func, colour = "darkorange1", linetype = "dashed", size = 1.2) +
+      stat_function(fun = gomp_dtr12_fluc32_func, colour = "firebrick3", linetype = "dashed", size = 1.2) 
+      #coord_fixed(ratio = 20)
+
+
+#Add plot of survival with only the gompertz functions
+ggplot( data.frame(x = c(0, 70)), aes(Temp = x))+
+scale_x_continuous(name="Days at treatment", limits = c (0, 70), breaks = seq(0,70,5), expand = c(0.02,0.02)) +
+        scale_y_continuous(name="Survivorship", limits=c(0, 1), breaks = seq(0,1,0.1), expand = c(0.02,0.02)) +
+  theme_classic( base_size = 20) +
+        theme(legend.position = 'right', panel.background = element_blank(), legend.key = element_rect( colour = NA, fill = NA), panel.border = element_rect(colour = "black", fill=NA, size=.5)) +
+        guides(shape = "none", fill = FALSE) +
+      stat_function(fun = Gompz_16_func1, colour = "purple", linetype = "solid", size = 1.2)+
+      stat_function(fun = Gompz_20_func1, colour = "blue", linetype = "solid", size = 1.2)+
+      stat_function(fun = Gompz_24_func1, colour = "darkgreen", linetype = "solid", size = 1.2)+
+      stat_function(fun = Gompz_28_func1, colour = "darkorange1", linetype = "solid", size = 1.2)+
+      stat_function(fun = Gompz_32_func1, colour = "firebrick3", linetype = "solid", size = 1.2)+
+      stat_function(fun = gomp_fluc16_func, colour = "purple", linetype = "dashed", size = 1.2) +
+      stat_function(fun = gomp_fluc20_func, colour = "blue", linetype = "dashed", size = 1.2) +
+      stat_function(fun = gomp_fluc24_func, colour = "darkgreen", linetype = "dashed", size = 1.2) +
+      stat_function(fun = gomp_fluc28_func, colour = "darkorange1", linetype = "dashed", size = 1.2) +
+      stat_function(fun = gomp_fluc32_func, colour = "firebrick3", linetype = "dashed", size = 1.2) +
+      stat_function(fun = gomp_dtr12_fluc16_func, colour = "purple", linetype = "dotted", size = 1.2) +
+      stat_function(fun = gomp_dtr12_fluc20_func, colour = "blue", linetype = "dotted", size = 1.2) +
+      stat_function(fun = gomp_dtr12_fluc24_func, colour = "darkgreen", linetype = "dotted", size = 1.2) +
+      stat_function(fun = gomp_dtr12_fluc28_func, colour = "darkorange1", linetype = "dotted", size = 1.2) +
+      stat_function(fun = gomp_dtr12_fluc32_func, colour = "firebrick3", linetype = "dotted", size = 1.2) 
+
+
+```
+
+
+
+
