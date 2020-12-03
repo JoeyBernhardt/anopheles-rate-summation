@@ -302,3 +302,26 @@ cat("
 	
 	} # close model ",fill=T)
 sink()
+
+### CL-Briere
+sink("CLBriere.txt")
+cat("
+	model{
+	
+	## Priors
+	cf.gmax ~ dunif(0, 1)
+	cf.Tmin ~ dunif(0, 24)
+	cf.Tmax ~ dunif(25, 50)
+	cf.alpha ~ dunif(0, 1)
+	cf.s ~ dunif(0, 100)
+	cf.sigma ~ dunif(0, 1000)
+	cf.tau <- 1 / (cf.sigma * cf.sigma)
+	
+	## Likelihood
+	for(i in 1:N.obs){
+	trait.mu[i] <- cf.gmax * ( ((temp[i]-cf.Tmin)/cf.alpha)^cf.alpha * ((cf.Tmax-temp[i])/(1-cf.alpha))^(1-cf.alpha) * (1/(cf.Tmax-cf.Tmin)) )^cf.s
+	trait[i] ~ dnorm(trait.mu[i], cf.tau)
+	}
+	
+	} # close model ",fill=T)
+sink()

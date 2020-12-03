@@ -146,13 +146,14 @@ jag.data <- list(trait = trait, N.obs = N.obs, temp = temp)
 lf.c.SS_T <- jags(data=jag.data, inits=inits, parameters.to.save=parameters, 
 					model.file="SS_T.txt", n.thin=nt, n.chains=nc, n.burnin=nb, 
 					n.iter=ni, DIC=T, working.directory=getwd())	
+lf.c.SS_T$BUGSoutput$summary
 
 lf.c.SS <- jags(data=jag.data, inits=inits, parameters.to.save=parameters, 
 				model.file="SS.txt", n.thin=nt, n.chains=nc, n.burnin=nb, 
 				n.iter=ni, DIC=T, working.directory=getwd())	
+lf.c.SS$BUGSoutput$summary
 
 mcmcplot(lf.c.SS)
-lf.c.SS$BUGSoutput$summary
 lf.c.SS$BUGSoutput$DIC
 lf.c.SS_T$BUGSoutput$DIC
 
@@ -173,9 +174,9 @@ p.lf.fit.c <- alldata.sum %>%
 	geom_line(data = lf.c.SS.summary, aes(x = temp.C, y = mean)) +
 	geom_line(data = lf.c.SS.summary, aes(x = temp.C, y = upper), linetype = "dashed") +
 	geom_line(data = lf.c.SS.summary, aes(x = temp.C, y = lower), linetype = "dashed") +
-	#geom_line(data = lf.c.SS_T.summary, aes(x = temp.C, y = mean), color = "red") +
-	#geom_line(data = lf.c.SS_T.summary, aes(x = temp.C, y = upper), linetype = "dashed", color = "red") +
-	#geom_line(data = lf.c.SS_T.summary, aes(x = temp.C, y = lower), linetype = "dashed", color = "red") +
+	geom_line(data = lf.c.SS_T.summary, aes(x = temp.C, y = mean), color = "red") +
+	geom_line(data = lf.c.SS_T.summary, aes(x = temp.C, y = upper), linetype = "dashed", color = "red") +
+	geom_line(data = lf.c.SS_T.summary, aes(x = temp.C, y = lower), linetype = "dashed", color = "red") +
 	ylab("Lifespan (days)") + xlab("Temperature (°C)") 
 p.lf.fit.c 
 ggsave("figures/lifespan_SSfit.pdf")
