@@ -577,17 +577,17 @@ ggsave("figures/lifespan_plot_all.pdf", lifespan_plot_all, width = 7, height = 5
 
 # eggs ----------------------------------------------------------------
 
-eggs.constant.predictions <- read_csv("data-processed/predictions_eggs_constant_summary_quad.csv")
-eggs.constant.params <- read_csv("data-processed/params_constant_eggs_all_quad.csv")
-eggs.constant.sum <- read_csv("data-processed/data_constant_eggs_sum_quad.csv")
+eggs.constant.predictions <- read_csv("data-processed/predictions_eggs_constant_summary.csv")
+eggs.constant.params <- read_csv("data-processed/params_constant_eggs_all.csv")
+eggs.constant.sum <- read_csv("data-processed/data_constant_eggs_sum.csv")
 
-eggs.dtr9.predictions <- read_csv("data-processed/predictions_eggs_dtr9_summary_quad.csv")
-eggs.dtr9.params <- read_csv("data-processed/params_dtr9_eggs_all_quad.csv")
-eggs.dtr9.sum <- read_csv("data-processed/data_dtr9_eggs_sum_quad.csv")
+eggs.dtr9.predictions <- read_csv("data-processed/predictions_eggs_dtr9_summary.csv")
+eggs.dtr9.params <- read_csv("data-processed/params_dtr9_eggs_all.csv")
+eggs.dtr9.sum <- read_csv("data-processed/data_dtr9_eggs_sum.csv")
 
-eggs.dtr12.predictions <- read_csv("data-processed/predictions_eggs_dtr12_summary_quad.csv")
-eggs.dtr12.params <- read_csv("data-processed/params_dtr12_eggs_all_quad.csv")
-eggs.dtr12.sum <- read_csv("data-processed/data_dtr12_eggs_sum_quad.csv")
+eggs.dtr12.predictions <- read_csv("data-processed/predictions_eggs_dtr12_summary.csv")
+eggs.dtr12.params <- read_csv("data-processed/params_dtr12_eggs_all.csv")
+eggs.dtr12.sum <- read_csv("data-processed/data_dtr12_eggs_sum.csv")
 
 #### all eggs
 
@@ -631,4 +631,5 @@ ggsave("figures/eggs_plot_all.pdf", eggs_plot_all, width = 7, height = 5)
 ### ok something is wrong with the lifespan plot -- we are missing the constant data and the fits look wrong
 
 all_plots <- wrap_plots(eggs_plot_all, lifespan_plot_all, bite_rate_plot_all)
-ggsave('figures/all_plots_combined-feb4.pdf', all_plots, width = 18, height = 6)
+ggsave('figures/all_plots_combined-feb4-3.pdf', all_plots, width = 18, height = 6)
+### OK so the best fits are briere for bite rate and egg production but quadratic for lifespan.
