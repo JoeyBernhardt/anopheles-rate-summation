@@ -1,0 +1,1163 @@
+---
+title: "Constant Temp Manucript Code"
+author: "Kerri Miazgowicz"
+date: "June 28, 2018"
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Modified / Checked 3/23/2020 for accuracy
+#Modified on 4/12/2020 to generate block specific averages across temps for use in curve fitting
+
+WorkFlow:
+1)Import the dataset
+2)Calculate temperature trends on an individual level basis
+3)Statistical analysis on trends
+4)Generate trait by day trends on a daily level basis
+5)Statistical analysis on trends
+
+
+Loading the required packages and the full dataset
+```{r}
+library(car)
+library(LMERConvenienceFunctions)
+library(MASS)
+library(arm)
+library(sjPlot)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(lme4)
+library(multcomp)
+library(FSA)
+library(rcompanion)
+
+## Set working dirctory
+mainDir = "C:/Users/Kerri/Desktop/Chapter1 Submission"
+setwd(mainDir)
+
+##Load the full dataset
+###Note: this originally was in my other drive folder, use cautions when running this script
+data <- read.csv("data/constant_master.csv")
+
+##Conversion of Date to first a character, so that it can be converted to as Posix for comparative use
+data$Date <-as.character(data$Date)
+data$Date2 <-as.POSIXlt(data$Date, format="%m/%d/%Y")
+
+##Ordering the dataframe by date, not needed, but is helpful when looking through the sheet.
+data <- data[order(data$Date2),]
+```
+
+1. ### Bite rate (aka. daily probability of taking a blood meal) ###
+- Bite rate is calcuated as the number of bites an individual took during their life. Averaged across all individuals in a temperature treatment
+```{r }
+#Create a dataset that is specific to the feed data - removing all rows where there is no DV present
+feeddata <- subset(data, select = c("Treatment", "Block", "Donor", "Female", "Feed", "Day"))
+feeddata <- feeddata %>% drop_na(Feed)
+
+#Make sure that temp is a factor
+#Add in a random intercept for block 
+feeddata$Treatment <- as.factor(feeddata$Treatment)
+feeddata$Block <- as.factor(feeddata$Block)
+feeddata$Donor <- as.factor(feeddata$Donor)
+feeddata$Female <- as.factor(feeddata$Female)
+
+```
+
+Using the raw data to calculate bite rate for each individual
+```{r}
+#Keep all 0
+raw.bite <- feeddata[,c("Treatment", "Block", "Female", "Feed", "Day")]
+
+#Graph female specific trends - Yes or No vs. Day
+all.bite.plot <- ggplot(data= raw.bite, aes(x=Day, y= (Feed), colour = Female, group = Female)) + 
+  geom_point(aes( color= Female), alpha = 0.6, size = 0.8) + 
+  scale_color_grey()+
+  geom_jitter(position = position_jitter(width = 0.1, height = 0.1)) +
+  scale_x_continuous(name="Days at treatment", limits = c (0, 60), breaks = seq(0,60,5)) +
+  scale_y_continuous(name="Bite (Y/N)", limits=c(0, 1), breaks = seq(0,1,0.5)) +
+  theme_bw(base_size = 12) +
+  geom_line(aes(group = Female), alpha = 0.6) +
+  theme(legend.position="none")+
+  coord_fixed(ratio = 2)
+
+plot(all.bite.plot)
+all.bite.plot + facet_grid(Treatment ~ .) + coord_fixed( ratio = 5)
+
+
+
+#Generate a bite rate value for each female (i.e no.bites / no. opprotunities)
+individual.bite.summary <- raw.bite %>%
+                                dplyr::group_by(Treatment,Female,Block)%>%
+                                dplyr::summarise( bite.day = sum(Feed),
+                                           opport = dplyr::n(),                                                               BFD = bite.day/opport) %>%
+                                ungroup()
+
+#Generate averages for each temperature treatment
+temp.bite.summary <- individual.bite.summary %>%
+                        dplyr::group_by(Treatment)%>%
+                        dplyr::summarise(bite.rate = mean(BFD), 
+                                         bite.sd = sd(BFD),
+                                         bite.SEM = sd(BFD/sqrt(length(BFD))),
+                                         no.individuals = dplyr::n())%>%
+                        ungroup()
+#Alternatively generate averages for each Block|Temperaature treatment
+temp.block.bite.summary <- individual.bite.summary %>%
+                        dplyr::group_by(Treatment, Block)%>%
+                        dplyr::summarise(bite.rate = mean(BFD), 
+                                         bite.sd = sd(BFD),
+                                         bite.SEM = sd(BFD/sqrt(length(BFD))),
+                                         no.individuals = dplyr::n())%>%
+                        ungroup()
+
+```
+
+Plot the bite.rate trends
+```{r}
+#Plot 1 - scatter plot of bite rates. colour dots by treatment
+ggplot(data = individual.bite.summary, aes(y= BFD, x = opport, colour = Treatment, group = Treatment)) +
+  geom_point(size = 2, shape = 19, alpha = 0.4)+
+  geom_smooth(method = lm, se = FALSE, linetype = 'dashed')+
+  theme_classic(base_size = 20)
+
+
+#Plot 2 - bar graph of means with SEM on them
+ggplot(data= temp.bite.summary, aes( x = Treatment, y= bite.rate , fill = Treatment)) + 
+  geom_bar(stat="identity", position=position_dodge()) + 
+  scale_fill_manual(values= c("#88498F","#1C77C3", "#4C4C4F","#196F0B","#FF6B35","#CC0606")) +
+  geom_errorbar(aes(ymin = bite.rate - bite.SEM, ymax = bite.rate + bite.SEM), width=0.6) +
+  xlab ("Temperature (C)") +
+  scale_y_continuous(name="Bite rate", limits=c(0,.6), breaks = seq(0,.6,0.1), expand = c(0,0)) +
+  #geom_dotplot(data = individual.bite.summary, aes( y= BFD), size = 0.2, binaxis = "y", method = "dotdensity", stackdir = "center", alpha = 0.4, stackratio = 0.5)+
+  theme_classic(base_size = 20)+
+  theme(legend.position = 'none', panel.background = element_blank(), legend.key = element_rect( colour = NA, fill = NA), panel.border = element_rect(colour = "black", fill=NA, size=.5)) 
+
+
+```
+
+#Perform stats on individual bite rates across treatments
+ANOVA
+requirments:
+1. observations are independent and random
+2. data among each factor (temp) are normally distributed
+3. normal populations have a common variance
+```{r}
+res.aov <- aov(data = individual.bite.summary,BFD ~ Treatment)
+plot(res.aov,1) #Two females are outlieres #190 & 298
+plot(res.aov, 2) #check normality
+aov_residuals <- residuals (object = res.aov)
+shapiro.test(x = aov_residuals) # The data are not normally distributed
+
+#If I ignore the violations of the normallity and look at significance
+summary(res.aov)
+#Post-hoc
+TukeyHSD(res.aov)
+tuk <- glht(res.aov, linfct = mcp(Treatment = "Tukey"))
+summary(tuk)   # standard display
+tuk.cld <- cld(tuk) 
+
+
+#Testing the assumption of equal variance between groups --> VIOLATED HERE
+library(car)
+leveneTest(BFD ~ Treatment, center = mean, data = individual.bite.summary)  # variance in bite rate between groups is statistically different thus we cannot comment on how means differ with the Dunn test.
+leveneTest(BFD ~ Treatment, center = median, data = individual.bite.summary) 
+
+#Alternate approaches which relax this assumption include; (Welch test)
+relaxed.bite.temp <- oneway.test(BFD ~ Treatment, data = individual.bite.summary)
+relaxed.bite.temp
+#Pairwise-comparison
+relaxed.posthoc <- pairwise.t.test(individual.bite.summary$BFD, individual.bite.summary$Treatment ,p.adjust.method = "BH", pool.sd = FALSE)
+relaxed.posthoc
+#cld "a" "b" "c" "d" "d" "e"
+
+#library(multcompView)
+#multcompLetters(relaxed.posthoc$p.value) #This is wrong; only includes 5 letters, not 6
+
+
+#Non normal distribution- kruskal test  --> NOT APPROPIATE SINCE DATA DOES NOT HAVE EQUAL VARIANCE
+kruskal.test(data = individual.bite.summary, BFD ~ Treatment)
+
+#Post-hoc test - Dunn test
+Dunn.TEST <- dunnTest(BFD ~ Treatment, data= individual.bite.summary, method="bh")      # Adjusts p-values for multiple comparisons;
+Dunn.TEST
+
+PT = Dunn.TEST$res
+PT
+
+
+#Showing this variance among groups here
+library(lattice)
+histogram(~ BFD | Treatment,  data=individual.bite.summary, layout=c(1,6))
+
+#letter.output <- as.data.frame (cldList(P.adj ~ Comparison, data = PT,  threshold = 0.05))
+#letter.string <- as.vector(letter.output$Letter)
+
+
+
+#Plot 3 - dotplot, with mean and sd in black AND STATISTICAL ANALYSIS INCLUDED
+bite.temp.plot <- ggplot(data = individual.bite.summary, aes(x= Treatment, y = BFD, fill = Treatment, colour = Treatment))+
+  scale_fill_manual(values= c("#88498F","#1C77C3", "#4C4C4F","#196F0B","#FF6B35","#CC0606")) +
+  scale_colour_manual(values= c("#88498F","#1C77C3", "#4C4C4F","#196F0B","#FF6B35","#CC0606")) +
+  geom_dotplot(data = individual.bite.summary, aes( y= BFD), size = 0.2, binaxis = "y", method = "dotdensity", stackdir = "center", alpha = 0.6, stackratio = 0.5)+ #add mean and SEM
+  geom_point(data = temp.bite.summary, aes(x = Treatment, y = bite.rate), shape=18,  size=5, color="black") +
+  geom_errorbar(data = temp.bite.summary, aes(x = Treatment, y = bite.rate, ymin = bite.rate - bite.sd, ymax = bite.rate + bite.sd), colour = "black", size = 1.2, width = 0.5)+
+  #geom_text(data = temp.bite.summary, aes(x = Treatment, y = bite.rate, label= c( "a","b","c","cd","cd","d"), hjust=offset.h, vjust=offset.v), colour = "black", size = 8) +
+  annotate("text", x = 5, y = 0.95, colour = "black", label = "Temperature: p<0.1", size = 6) +
+  xlab ("Temperature (C)") +
+  scale_y_continuous(name="Bite rate", limits=c(0,1), breaks = seq(0,1,0.2), expand = c(0,0)) +
+  theme_classic(base_size = 20)+
+  theme(legend.position = 'none', panel.background = element_blank(), legend.key = element_rect( colour = NA, fill = NA), panel.border = element_rect(colour = "black", fill=NA, size=.5))
+
+bite.temp.plot
+
+
+library(fitdistrplus)
+descdist(individual.bite.summary$BFD, discrete = FALSE)
+d <- density(individual.bite.summary$BFD) 
+plot(d)
+
+#To remove the issue of having three 0 values in the dataset, I'm transforming the data to all include a very small number (0.0000001)
+individual.bite.summary$BFD.t <- individual.bite.summary$BFD + 0.0000001
+
+#Assesses the use of a gamma distributon on these data
+fit.gamma <- fitdist(individual.bite.summary$BFD.t, distr = "gamma", method = "mme")
+fit.lognormal <- fitdist(individual.bite.summary$BFD.t, distr = "lnorm", method = "mme")
+fit.nb <- fitdist(individual.bite.summary$BFD.t, distr = "nbinom", method = "mme")
+
+plot(fit.gamma)
+plot(fit.lognormal)
+#plot(fit.nb)
+
+
+bite.temp.model <- glmer(BFD.t ~ Treatment + (1|Block), family = Gamma (link ='log'), data = individual.bite.summary)
+#Gamma models cannot be overdispersed
+
+Anova(bite.temp.model)
+summary(glht(bite.temp.model, mcp(Treatment = "Tukey")))
+cld(glht(bite.temp.model, mcp(Treatment = "Tukey")))
+#sjt.glmer(bite.temp.model)
+
+summary(bite.temp.model) #The lack of variance for the random effect is a problem
+
+#Cited as a quick and dirty way to test for the importance of a random effect; include random effect in as a fixed factor; is not significant, thus including Block as a random effect likely does not improve our predictions. 
+bite.temp.model2 <- glm(BFD.t ~ Block * Treatment, family = Gamma (link ='log'), data = individual.bite.summary)
+summary(bite.temp.model2)
+Anova(bite.temp.model2)
+
+#A second method to test is to set a common ID and model as a random effect
+individual.bite.summary$ID.constant <- 1
+bite.temp.model3 <- glmer(BFD.t ~ Treatment + (1|ID.constant), family = Gamma (link ='log'),control=glmerControl(check.nlev.gtr.1="ignore"), data = individual.bite.summary) #to overrride the grouping requirment I add in this additional parameter;github.com/lme4/lme4/issues/411 (Ben Bolker)
+
+anova(bite.temp.model, bite.temp.model3)
+#As this is NOT signficant; this test also supports the removal of the mixed effect of block from 
+
+bite.temp.model4 <- glm(BFD.t ~ Treatment, family = Gamma (link ='log'), data = individual.bite.summary)
+summary(bite.temp.model4)
+
+plot(bite.temp.model4) # as this is a glm and not a lm these plots are generally uninformative
+
+Anova(bite.temp.model4)
+summary(glht(bite.temp.model4, mcp(Treatment = "Tukey")))
+cld(glht(bite.temp.model4, mcp(Treatment = "Tukey")))
+#sjt.glmer(bite.temp.model4)
+
+
+
+#It appears that by incorporating the mixed effect of Block (Donor cannot be included) the outputs in significance become more conservative where "a" "b" "c" "c" "c" "c" compared to  "a"  "b"  "c" "cd" "cd"  "d" when Block is not included.
+#Issues with model as is-> It is not clear how the inclusion of Donor affecting model fit; as there is no variance or std.dev assoicated with the mixed model which would advise the use of the non-mixed model version which the letters of significance agrees with the previous nonparametric tests.
+#Lastly if I ignore the violatins of assumptions of a standard ANOVA and look at the effect of temperature with a TukeyHSD posthoc comparision my signicance is as "a"  "b"  "c" "cd" "de"  "e" compared to  "a"  "b"  "c" "cd" "cd"  "d" with a nonparametric anova (kruskal.test) followed by a Dunns' Test.
+
+#Furthermore as presented in GLMM FAQS by Ben Bolker (https://bbolker.github.io/mixedmodels-misc/glmmFAQ.html) Random effects with less than 5 or 6 factors should not be incldued as random effects in these models (which is true in this case... further supporting the use of the glm with only Temp or the anova based comparisons. - "Clark and Linzer (2015) address this question from a mostly econometric perspective, focusing mostly on practical variance/bias/RMSE criteria.One point of particular relevance to 'modern' mixed model estimation (rather than 'classical' method-of-moments estimation) is that, for practical purposes, there must be a reasonable number of random-effects levels (e.g. blocks) - more than 5 or 6 at a minimum." Furthermore this lack of factors in our random effects is cited to be a possible reason for the 0 value in varience for that factor " small numbers of random-effect levels (e.g. <5), as illustrated in these simulations and discussed (in a somewhat different, Bayesian context) by Gelman (2006)."
+
+#For the nonparametric test there is a highly significant variance among group ; meaning that the KW post-hoc dunnT can only infer about the stochastic dominance between groups vary not the equality of medians. Furthermore, classical ANOVA cannot be used as levenes test needs to be met here as well
+
+#For the parametric test; violation of a normal distribution is ignored; violation of variance among groups is acknowledged; a Welch test is performed instead (significant) followed by a post-hoc comparison resulting in "a" "b" "c" "d" "d" "e"
+
+#I would advise using either a standard glm or the parametric test with relaxed assumptions of variance among groups (Welch) leading to pairwise comparisions of  "a"  "b"  "c" "cd" "cd"  "d" or "a" "b" "c" "d" "d" "e" with only a slightly different interpretation of significance among groups.#GLM are appropiate when the data is not normal and the variance is non-equal between groups (this is what we have here) and the response is linear. As GLM[not GLMM!] seems more conservative that would be my choice to use in this analysis
+
+
+```
+
+
+
+
+2. ###Lifetime egg production on an individual level basis####
+Calculated as the total.no eggs laid across the lifespan of an individual
+
+```{r}
+#Create a dataset that is specific to the egg data - removing all rows where there is no DV present
+lifeeggdata <- subset(data, select = c("Treatment", "Block", "Donor", "Female", "Count", "Dead", "Day"))
+
+#Replace Nas in 'Count' with 0. 
+lifeeggdata$Count[is.na(lifeeggdata$Count)] <-0 
+
+#Make sure that temp is a factor
+lifeeggdata$Treatment <- as.factor(lifeeggdata$Treatment)
+lifeeggdata$Block <- as.factor(lifeeggdata$Block)
+lifeeggdata$Donor <- as.factor(lifeeggdata$Donor)
+lifeeggdata$Female <- as.factor(lifeeggdata$Female)
+
+#Make a new colmn that clearly states the lifespan (days) of each individual
+lifeeggdata <- lifeeggdata %>%
+               dplyr::group_by(Female) %>%
+               dplyr::mutate( Lifespan = max(Day))%>%
+               ungroup()
+
+#Make a df that sums the total number of eggs laid for each female
+individ.lifeegg.summary <- lifeeggdata %>%
+                          dplyr::group_by(Treatment,Block,Female,Lifespan)%>%
+                          dplyr::summarise( total.eggs = sum(Count)) %>%
+                          ungroup()
+
+individ.lifeegg.summary$daily.eggs <- individ.lifeegg.summary$total.eggs / individ.lifeegg.summary$Lifespan
+
+#Generate averages for each temperature treatment
+temp.lifeegg.summary <-individ.lifeegg.summary %>%
+                        dplyr::group_by(Treatment) %>%
+                        dplyr::summarise( lifeeggs = mean(total.eggs),
+                                          lifeeggs.sd = sd(total.eggs),
+                                          lifeeggs.SEM = sd(total.eggs)/sqrt(length(total.eggs)) ,
+                                          ave.lifespan = mean(Lifespan),
+                                          lifespan.sd =sd(Lifespan),
+                                          lifespan.SEM =sd(Lifespan)/sqrt(length(Lifespan)) ,
+                                          ave.daily.eggs = mean(daily.eggs),
+                                          daily.eggs.sd = sd(daily.eggs),
+                                          daily.eggs.SEM = sd(daily.eggs)/sqrt(length(daily.eggs)),
+                                          no.individuals = dplyr::n()) %>%
+                        ungroup()
+```
+
+3. ###Plots of lifetime egg production & Lifespan & Daily egg production
+```{r}
+#Plot 1 - scatter plot of lifetimeeggprodction by lifespan. colour dots by treatment
+ggplot(data = individ.lifeegg.summary, aes(y= total.eggs, x = Lifespan, colour = Treatment, group = Treatment)) +
+  geom_point(size = 2, shape = 19, alpha = 0.4)+
+  geom_smooth(method = lm, se = FALSE, linetype = 'dashed')+
+  theme_classic(base_size = 20)
+
+
+#Plot1b - scatter plot of daily egg production by lifespan. colour dots by treatment
+ggplot(data = individ.lifeegg.summary, aes(y= daily.eggs, x = Lifespan, colour = Treatment, group = Treatment)) +
+  geom_point(size = 2, shape = 19, alpha = 0.4)+
+  geom_smooth(method = lm, se = FALSE, linetype = 'dashed')+
+  theme_classic(base_size = 20)
+
+
+#Plot 2 - bar graph of means with SEM on them
+ggplot(data= temp.lifeegg.summary , aes( x = Treatment, y= lifeeggs , fill = Treatment)) + 
+  geom_bar(stat="identity", position=position_dodge()) + 
+  scale_fill_manual(values= c("#88498F","#1C77C3", "#4C4C4F","#196F0B","#FF6B35","#CC0606")) +
+  geom_errorbar(aes(ymin = lifeeggs - lifeeggs.SEM, ymax = lifeeggs + lifeeggs.SEM), width=0.6) +
+  xlab ("Temperature (C)") +
+  scale_y_continuous(name="Lifetime egg production", limits=c(0,500), breaks = seq(0,500,100), expand = c(0,0)) +
+  #geom_dotplot(data = individual.bite.summary, aes( y= BFD), size = 0.2, binaxis = "y", method = "dotdensity", stackdir = "center", alpha = 0.4, stackratio = 0.5)+
+  theme_classic(base_size = 20)+
+  theme(legend.position = 'none', panel.background = element_blank(), legend.key = element_rect( colour = NA, fill = NA), panel.border = element_rect(colour = "black", fill=NA, size=.5)) 
+
+
+#Plot 4 - bar graph of means with SEM on them
+ggplot(data= temp.lifeegg.summary , aes( x = Treatment, y= ave.lifespan , fill = Treatment)) + 
+  geom_bar(stat="identity", position=position_dodge()) + 
+  scale_fill_manual(values= c("#88498F","#1C77C3", "#4C4C4F","#196F0B","#FF6B35","#CC0606")) +
+  geom_errorbar(aes(ymin = ave.lifespan - lifespan.SEM, ymax = ave.lifespan + lifespan.SEM), width=0.6) +
+  xlab ("Temperature (C)") +
+  scale_y_continuous(name="Lifespan", limits=c(0,45), breaks = seq(0,45,15), expand = c(0,0)) +
+  #geom_dotplot(data = individual.bite.summary, aes( y= BFD), size = 0.2, binaxis = "y", method = "dotdensity", stackdir = "center", alpha = 0.4, stackratio = 0.5)+
+  theme_classic(base_size = 20)+
+  theme(legend.position = 'none', panel.background = element_blank(), legend.key = element_rect( colour = NA, fill = NA), panel.border = element_rect(colour = "black", fill=NA, size=.5)) 
+
+#Plot 6 - bar graph of means with SEM on them
+ggplot(data= temp.lifeegg.summary , aes( x = Treatment, y= ave.daily.eggs , fill = Treatment)) + 
+  geom_bar(stat="identity", position=position_dodge()) + 
+  scale_fill_manual(values= c("#88498F","#1C77C3", "#4C4C4F","#196F0B","#FF6B35","#CC0606")) +
+  geom_errorbar(aes(ymin = ave.daily.eggs - daily.eggs.SEM, ymax = ave.daily.eggs + daily.eggs.SEM), width=0.6) +
+  xlab ("Temperature (C)") +
+  scale_y_continuous(name="Daily egg production", limits=c(0,15), breaks = seq(0,15,5), expand = c(0,0)) +
+  #geom_dotplot(data = individual.bite.summary, aes( y= BFD), size = 0.2, binaxis = "y", method = "dotdensity", stackdir = "center", alpha = 0.4, stackratio = 0.5)+
+  theme_classic(base_size = 20)+
+  theme(legend.position = 'none', panel.background = element_blank(), legend.key = element_rect( colour = NA, fill = NA), panel.border = element_rect(colour = "black", fill=NA, size=.5)) 
+
+
+```
+
+4. ### Stats on lifetime egg production & Lifespan
+ANOVA
+requirments:
+1. observations are independent and random
+2. data among each factor (temp) are normally distributed
+3. normal populations have a common variance
+```{r}
+#LIFETIME EGG PRODUCTION
+res.aov <- aov(data = individ.lifeegg.summary, total.eggs ~ Treatment)
+plot(res.aov,1) #Three females are outlieres #249,254 & 146
+plot(res.aov, 2) #check normality
+aov_residuals <- residuals (object = res.aov)
+shapiro.test(x = aov_residuals) # The data are not normally distributed
+
+leveneTest(total.eggs ~ Treatment, center = mean, data = individ.lifeegg.summary)  #Non-equal variance between groups
+
+#Alternate approaches which relax this assumption include; (Welch test)
+relaxed.lifeeggs.temp <- oneway.test(total.eggs ~ Treatment, data = individ.lifeegg.summary)
+relaxed.lifeeggs.temp
+#Pairwise-comparison
+relaxed.posthoc <- pairwise.t.test(individ.lifeegg.summary$total.eggs, individ.lifeegg.summary$Treatment ,p.adjust.method = "BH", pool.sd = FALSE)
+relaxed.posthoc
+
+#cld "a" "bc" "b" "c" "d" "e"
+
+
+#Non normal distribution- kruskal test
+kruskal.test(data = individ.lifeegg.summary, total.eggs ~ Treatment)
+
+#Post-hoc test - Dunn test
+Dunn.TEST <- dunnTest(total.eggs ~ Treatment, data= individ.lifeegg.summary, method="bh")      # Adjusts p-values for multiple comparisons;
+Dunn.TEST
+
+PT = Dunn.TEST$res
+PT
+
+letter.output <- as.data.frame (cldList(P.adj ~ Comparison, data = PT,  threshold = 0.05))
+letter.string <- as.vector(letter.output$Letter)
+#"a" "b""	"c""	"bc""	"b""	d
+
+#offset.h = 0.5
+#offset.v = -3.5
+
+lifeeggs.temp.plot <- ggplot(data = individ.lifeegg.summary, aes(x= Treatment, y = total.eggs, fill = Treatment, colour = Treatment))+
+  scale_fill_manual(values= c("#88498F","#1C77C3", "#4C4C4F","#196F0B","#FF6B35","#CC0606")) +
+  scale_colour_manual(values= c("#88498F","#1C77C3", "#4C4C4F","#196F0B","#FF6B35","#CC0606")) +
+  geom_dotplot(data = individ.lifeegg.summary, aes( y= total.eggs), size = 0.2, binaxis = "y", method = "dotdensity", stackdir = "center", alpha = 0.6, stackratio = 0.5)+ #add mean and SEM
+  geom_point(data = temp.lifeegg.summary, aes(x = Treatment, y = lifeeggs), shape=18,  size=5, color="black") +
+  geom_errorbar(data = temp.lifeegg.summary, aes(x = Treatment, y = lifeeggs, ymin = lifeeggs - lifeeggs.sd, ymax = lifeeggs + lifeeggs.sd), colour = "black", size = 1.2, width = 0.5)+
+  xlab ("Temperature (C)") +
+  scale_y_continuous(name="Lifetime egg production", limits=c(-50,1000), breaks = seq(0,1000,200), expand = c(0,0)) +
+   #geom_text(data = temp.lifeegg.summary, aes(x = Treatment, y = lifeeggs, label= c( "a","a","b","a","a","c"), hjust=offset.h, vjust=offset.v), colour = "black", size = 8) +
+  annotate("text", x = 5, y = 950, colour = "black", label = "Temperature: p<0.1", size = 6) +
+  xlab ("Temperature (C)") +
+  theme_classic(base_size = 20)+
+  theme(legend.position = 'none', panel.background = element_blank(), legend.key = element_rect( colour = NA, fill = NA), panel.border = element_rect(colour = "black", fill=NA, size=.5)) 
+
+lifeeggs.temp.plot
+
+d <- density(individ.lifeegg.summary$total.eggs) 
+plot(d)
+#Assesses the use of a gamma distributon on these data
+library(fitdistrplus)
+descdist(individ.lifeegg.summary$total.eggs, discrete = FALSE)
+
+fit.gamma <- fitdist(individ.lifeegg.summary$total.eggs, distr = "gamma", method = "mme")
+fit.pois <- fitdist(individ.lifeegg.summary$total.eggs, distr = "pois", method = "mme")
+fit.nb <- fitdist (individ.lifeegg.summary$total.eggs, distr = "nbinom", method = "mme")
+
+plot(fit.gamma)
+plot(fit.pois)
+plot(fit.nb)
+
+individ.lifeegg.summary$total.eggs.t <- individ.lifeegg.summary$total.eggs + 0.01
+
+lifeegg.temp.model <- glmer(total.eggs.t ~ Treatment + (1|Block), family = Gamma (link ='log'), data = individ.lifeegg.summary)
+summary(lifeegg.temp.model) #No values for the random effect; suggests removal of this term like above
+Anova(lifeegg.temp.model)
+
+lifeegg.temp.model2 <- glm(total.eggs.t ~ Treatment, family = Gamma (link ='log'), data = individ.lifeegg.summary)
+summary(lifeegg.temp.model2)
+#summary(glht(lifeegg.temp.model2, mcp(Treatment = "Tukey")))
+#cld(glht(lifeegg.temp.model2, mcp(Treatment = "Tukey")))
+# "a" "ab"  "c" "bc" "ab" "ab" 
+#sjt.glmer(lifeegg.temp.model2)
+
+#Model doesnt converge; and a gamma is likely not appropiate given the zero-inflated nature of this modle
+
+
+#Zero-inflated count data here; A zero-inflated pois or nbinom will likely be most appropiate
+library(pscl)
+zero.infl1 <- zeroinfl(total.eggs ~ Treatment, data = individ.lifeegg.summary) #runs zero-inflated pois
+zero.infl2 = zeroinfl(total.eggs ~ Treatment, data = individ.lifeegg.summary, dist = "negbin") #runs zero-inflated nb
+norm.pois <- glm(total.eggs ~ Treatment, family = poisson, data = individ.lifeegg.summary)
+
+#compare
+vuong(zero.infl1, norm.pois) #zero-inflated model fits better
+
+summary(zero.infl1)
+summary(zero.infl2) #Theta is significant, indicating we would want to use the nb.zero version over pois?
+
+
+#How do I perform pair-wise comparisons of the zero-inflated model ??? emmeans
+#See this link: http://rcompanion.org/handbook/J_01.html
+Anova(zero.infl2,  type="II",  test="Chisq")
+library(multcompView)
+library(lsmeans)
+marginal = lsmeans(zero.infl2,  ~ Treatment)
+pairs(marginal, adjust="tukey")
+
+cld(marginal, alpha=0.05,  Letters=letters, adjust="tukey")
+# "a,ab,c,bc,ab,d"
+
+
+
+
+##############LIFESPAN
+res.aov <- aov(data = individ.lifeegg.summary, Lifespan ~ Treatment)
+plot(res.aov,1) #Two females are outlieres #64,101
+plot(res.aov, 2) #check normality
+aov_residuals <- residuals (object = res.aov)
+shapiro.test(x = aov_residuals) # The data are not normally distributed
+
+#Non normal distribution- kruskal test
+kruskal.test(data = individ.lifeegg.summary, Lifespan ~ Treatment)
+
+leveneTest(Lifespan ~ Treatment, center = mean, data = individ.lifeegg.summary)  #Non-equal variance between groups
+
+#Alternate approaches which relax this assumption include; (Welch test)
+relaxed.lifeeggs.temp <- oneway.test(Lifespan ~ Treatment, data = individ.lifeegg.summary)
+relaxed.lifeeggs.temp
+#Pairwise-comparison
+relaxed.posthoc <- pairwise.t.test(individ.lifeegg.summary$Lifespan, individ.lifeegg.summary$Treatment ,p.adjust.method = "BH", pool.sd = FALSE)
+relaxed.posthoc
+
+#Post-hoc test - Dunn test
+Dunn.TEST <- dunnTest(Lifespan ~ Treatment, data= individ.lifeegg.summary, method="bh")      # Adjusts p-values for multiple comparisons;
+Dunn.TEST
+
+PT = Dunn.TEST$res
+PT
+
+letter.output <- as.data.frame (cldList(P.adj ~ Comparison, data = PT,  threshold = 0.05))
+letter.string <- as.vector(letter.output$Letter)
+# "ab" "a"  "a"  "b"  "c"  "d" 
+
+#offset.h = 0.5
+#offset.v = 0
+
+#dotplot; lifespan with mean and sd in black
+lifespan.temp.plot <- ggplot(data = individ.lifeegg.summary, aes(x= Treatment, y = Lifespan, fill = Treatment, colour = Treatment))+
+  scale_fill_manual(values= c("#88498F","#1C77C3", "#4C4C4F","#196F0B","#FF6B35","#CC0606")) +
+  scale_colour_manual(values= c("#88498F","#1C77C3", "#4C4C4F","#196F0B","#FF6B35","#CC0606")) +
+  geom_dotplot(data = individ.lifeegg.summary, aes( y= Lifespan), size = 0.2, binaxis = "y", method = "dotdensity", stackdir = "center", alpha = 0.6, stackratio = 0.5)+ #add mean and SEM
+  geom_point(data = temp.lifeegg.summary, aes(x = Treatment, y = ave.lifespan), shape=18,  size=5, color="black") +
+  geom_errorbar(data = temp.lifeegg.summary, aes(x = Treatment, y = ave.lifespan, ymin = ave.lifespan - lifespan.sd, ymax = ave.lifespan + lifespan.sd), colour = "black", size = 1.2, width = 0.5)+
+  # geom_text(data = temp.lifeegg.summary, aes(x = Treatment, y = ave.lifespan, label= c( "ab","a","a","b","c","d"), hjust=offset.h, vjust=offset.v), colour = "black", size = 8) +
+  annotate("text", x = 5, y = 56, colour = "black", label = "Temperature: p<0.1", size = 6) +
+  xlab ("Temperature (C)") +
+  scale_y_continuous(name="Lifespan", limits=c(0,60), breaks = seq(0,60,15), expand = c(0,0)) +
+  theme_classic(base_size = 20)+
+  theme(legend.position = 'none', panel.background = element_blank(), legend.key = element_rect( colour = NA, fill = NA), panel.border = element_rect(colour = "black", fill=NA, size=.5)) 
+
+lifespan.temp.plot
+########
+#####Evaluating the use of GLM models
+#######
+
+#looking at the data distribution
+descdist(individ.lifeegg.summary$Lifespan, discrete = FALSE) # This suggests to use a uniform distribution
+d <- density(individ.lifeegg.summary$Lifespan) 
+plot(d)
+histogram(~ Lifespan | Treatment ,  data=individ.lifeegg.summary, layout=c(1,6)) #This suggests to use a uniform distribution
+
+lifespan.temp.model <- glm(Lifespan ~ Treatment, family = Gamma (link ='log'), data = individ.lifeegg.summary)
+#lifespan.temp.model <- glm(Lifespan ~ Treamtent family = Uniform (), data = individ.lifeegg.summary)
+Anova(lifespan.temp.model)
+summary(lifespan.temp.model)
+summary(glht(lifespan.temp.model, mcp(Treatment = "Tukey")))
+cld(glht(lifespan.temp.model, mcp(Treatment = "Tukey")))
+
+
+
+###DAILY EGG PRODUCTION
+res.aov <- aov(data = individ.lifeegg.summary, daily.eggs ~ Treatment)
+plot(res.aov,1) #Three females are outlieres #343,332,269
+plot(res.aov, 2) #check normality
+aov_residuals <- residuals (object = res.aov)
+shapiro.test(x = aov_residuals) # The data are not normally distributed
+
+#Non normal distribution- kruskal test
+kruskal.test(data = individ.lifeegg.summary, daily.eggs ~ Treatment)
+
+#Post-hoc test - Dunn test
+Dunn.TEST <- dunnTest(daily.eggs ~ Treatment, data= individ.lifeegg.summary, method="bh")      # Adjusts p-values for multiple comparisons;
+Dunn.TEST
+
+PT = Dunn.TEST$res
+PT
+
+letter.output <- as.data.frame (cldList(P.adj ~ Comparison, data = PT,  threshold = 0.05))
+letter.string <- as.vector(letter.output$Letter)
+# "a" "ab"  "cd"  "bcd"  "c"  "abd" 
+
+offset.h = 0.5
+offset.v = -2.5
+
+
+#dotplot; daily egg production with mean and sd in black
+ggplot(data = individ.lifeegg.summary, aes(x= Treatment, y = daily.eggs, fill = Treatment, colour = Treatment))+
+  scale_fill_manual(values= c("#88498F","#1C77C3", "#4C4C4F","#196F0B","#FF6B35","#CC0606")) +
+  scale_colour_manual(values= c("#88498F","#1C77C3", "#4C4C4F","#196F0B","#FF6B35","#CC0606")) +
+  geom_dotplot(data = individ.lifeegg.summary, aes( y= daily.eggs), size = 0.2, binaxis = "y", method = "dotdensity", stackdir = "center", alpha = 0.6, stackratio = 0.5)+ #add mean and SEM
+  geom_point(data = temp.lifeegg.summary, aes(x = Treatment, y = ave.daily.eggs), shape=18,  size=5, color="black") +
+  geom_errorbar(data = temp.lifeegg.summary, aes(x = Treatment, y = ave.daily.eggs, ymin = ave.daily.eggs - daily.eggs.sd, ymax = ave.daily.eggs + daily.eggs.sd), colour = "black", size = 1.2, width = 0.5)+
+   geom_text(data = temp.lifeegg.summary, aes(x = Treatment, y = ave.daily.eggs, label= c( "a","ab","cd","bcd","c","abd"), hjust=offset.h, vjust=offset.v), colour = "black", size = 8) +
+  annotate("text", x = 5, y = 56, colour = "black", label = "Temperature: p<0.1", size = 6) +
+  xlab ("Temperature (C)") +
+  scale_y_continuous(name="Daily egg production", limits=c(-2.1,60), breaks = seq(0,60,15), expand = c(0,0)) +
+  theme_classic(base_size = 20)+
+  theme(legend.position = 'none', panel.background = element_blank(), legend.key = element_rect( colour = NA, fill = NA), panel.border = element_rect(colour = "black", fill=NA, size=.5)) 
+```
+
+### TOTAL NO. GCS / GC DURATION / CLUTCH SIZE - across indiviudals
+
+```{r}
+#Import GC associated data
+GCdata <- read.csv("data/GC_master_constant.csv")
+
+#Replace NAs with 0 for the functions  to work properly
+GCdata$Feed[is.na(GCdata$Feed)] <- 0
+
+
+#First I have add in lifespan of the individual
+GC_specific <- GCdata %>%
+               dplyr::group_by(Female) %>%
+               dplyr::mutate(Lifespan = max(Day)) %>%
+               ungroup()
+
+#Adding in bite associated variables of interest
+GC_specific <- GC_specific %>%
+               dplyr::group_by(Female,GC) %>%
+               dplyr::mutate(Duration = dplyr::n(), no.Bites = sum(Feed == 1)) %>%
+              ungroup()
+
+#I have to do eggs counts seperate due to the difference in grouping definitions
+GC_specific <- GC_specific%>%
+               dplyr::group_by(Female, eggGroup) %>%
+               dplyr::mutate(no.Lays = sum(Laid == 1),
+                             no.Eggs = max(GCeggCount)) %>%
+               ungroup() 
+
+#I need to correct the disconnect in the number of Eggs between EggGroup and GC
+#To do this I need to create a new column no.Eggs which assigns no.Eggs.1 for GC == egggroup
+#Then I need to add in the value of no.Eggs.1 for EggGroup to where EggGroup = GC
+for (i in 1:length(GC_specific$no.Eggs))
+{
+if (GC_specific$eggGroup[i] != GC_specific$GC[i]){
+  GC_specific$no.Eggs[i] = GC_specific$no.Eggs[i+1]
+}
+  }
+
+
+#To remove the time prior to the first blood meal, and the last GC if no eggs were laid
+#Remove all rows where no.Eggs = 0
+GC_specific <- GC_specific[!(GC_specific$no.Eggs == 0),]
+
+#In order for distict to work properly I need to remove all the other rows that dont matter.
+GC_specific <- dplyr::select(GC_specific, Treatment, Block, Female, GC, Lifespan, Duration, no.Bites, no.Lays, no.Eggs)
+
+#I really only care about the values per each GC so I minimize the df like so
+#Need to reimplement the grouping by female
+GC_specific <- GC_specific%>%
+               dplyr::group_by(Female,GC) %>%
+               dplyr::distinct(.keep_all = TRUE)%>%
+               ungroup()
+
+
+#Note this df does not include the individuals who had 0 GCs....n() shown in next line
+demonstrate <- GC_specific %>%
+                dplyr::group_by(Female, Treatment) %>%
+                dplyr::summarise()%>%
+                ungroup()
+
+demonstrate2 <- demonstrate %>%
+                 dplyr::group_by(Treatment) %>%
+                 dplyr::summarise(sample.size = dplyr::n()) %>%
+                 ungroup()
+demonstrate2$start.sample <- c(60,60,60,90,60,60)
+demonstrate2$no.lay <- demonstrate2$start.sample - demonstrate2$sample.size
+
+
+#################################
+#Do I include 0s with total number of GCs averaages or not?
+Female_specific <-  GC_specific %>%
+                        dplyr::group_by(Female) %>%
+                        dplyr::mutate( ave.Duration = mean(Duration),
+                                       ave.no.Bites = mean(no.Bites),
+                                       ave.no.Eggs = mean(no.Eggs),
+                                       Total = sum(no.Eggs) ,
+                                       total.GC = max(GC),
+                                       Duration.SEM = (sd(Duration)/sqrt(length(Duration))),
+                                       no.Bites.SEM = (sd(no.Bites)/sqrt(length(no.Bites))),
+                                       totaleggs.SEM = (sd(no.Eggs)/sqrt(length(no.Eggs))),
+                                       Duration.sd = sd(Duration),
+                                       no.Bites.sd = sd(no.Bites),
+                                       total.eggs.sd = sd(no.Eggs)) %>%
+                         ungroup()
+
+
+#Keep only distinct Females
+Female_specific <- dplyr::distinct(Female_specific, Female, .keep_all = TRUE)
+
+#Removing columns
+Female_specific <- dplyr::select(Female_specific, Treatment, Female, Lifespan, total.GC, ave.Duration, ave.no.Bites, ave.no.Eggs, Total, Duration.SEM, no.Bites.SEM, totaleggs.SEM, Duration.sd, no.Bites.sd,total.eggs.sd )
+
+##############################################################################
+####Total no.GCs across temperatures without 0's
+temp.no.GC <- Female_specific %>%
+              dplyr:: group_by(Treatment) %>%
+              dplyr::summarise( ave.no.GC = mean(total.GC),
+                                no.GC.sd = sd(total.GC),
+                                no.GC.SEM = sd(total.GC)/ sqrt(length(total.GC))) %>%
+              ungroup()
+
+####Total no.GCs across temperatures including 0's  ---> This is the more accurate measure for this trait!
+total.GC.including0s <- as.data.frame(cbind(Treatment = Female_specific$Treatment, Female = Female_specific$Female, total.GC = Female_specific$total.GC))
+
+#add in 0's for each group as specified by demonstrate2$no.lay
+#First create a new df which has a unique female ID, for each time; and append that to the first one
+#THe non-eloquent way of doing this;
+zero.df <- as.data.frame(cbind(Treatment = c (rep.int(16, demonstrate2$no.lay[1]), rep.int(20, demonstrate2$no.lay[2]), rep.int(24, demonstrate2$no.lay[3]),rep.int(28, demonstrate2$no.lay[4]),rep.int(32, demonstrate2$no.lay[5]),rep.int(36, demonstrate2$no.lay[6])), Female = seq.int(1001, length.out = sum(demonstrate2$no.lay)), total.GC = rep.int(0, sum(demonstrate2$no.lay))))
+
+#combine
+total.GC.including0s <- rbind(total.GC.including0s, zero.df)
+
+temp.no.GC.with0s <- dplyr::summarise(group_by(total.GC.including0s, Treatment), ave.no.GC = mean(total.GC), no.GC.sd = sd(total.GC), no.GC.SEM = sd(total.GC)/ sqrt(length(total.GC)))
+
+#Plot - bar graph with mean and SEM
+temp.no.GC.with0s$Treatment <- as.factor(temp.no.GC.with0s$Treatment)
+
+ggplot(data= temp.no.GC.with0s , aes( x = Treatment, y= ave.no.GC , fill = Treatment)) + 
+  geom_bar(stat="identity", position=position_dodge()) + 
+  scale_fill_manual(values= c("#88498F","#1C77C3", "#4C4C4F","#196F0B","#FF6B35","#CC0606")) +
+  geom_errorbar(aes(ymin = ave.no.GC - no.GC.SEM, ymax = ave.no.GC + no.GC.SEM), width=0.6) +
+  xlab ("Temperature (C)") +
+  scale_y_continuous(name="No. gonotrophic cycles", limits=c(0,5), breaks = seq(0,5,1), expand = c(0,0)) +
+  #geom_dotplot(data = individual.bite.summary, aes( y= BFD), size = 0.2, binaxis = "y", method = "dotdensity", stackdir = "center", alpha = 0.4, stackratio = 0.5)+
+  theme_classic(base_size = 20)+
+  theme(legend.position = 'none', panel.background = element_blank(), legend.key = element_rect( colour = NA, fill = NA), panel.border = element_rect(colour = "black", fill=NA, size=.5)) 
+
+###Stats on total.no GC
+total.GC.including0s$Treatment <- as.factor(total.GC.including0s$Treatment)
+
+res.aov <- aov(data = total.GC.including0s, total.GC ~ Treatment)
+plot(res.aov,1) #Two females are outlieres #227,187
+plot(res.aov, 2) #check normality
+aov_residuals <- residuals (object = res.aov)
+shapiro.test(x = aov_residuals) # The data are not normally distributed
+
+#Non normal distribution- kruskal test
+kruskal.test(data = total.GC.including0s, total.GC ~ Treatment)
+
+#Post-hoc test - Dunn test
+Dunn.TEST <- dunnTest(total.GC ~ Treatment, data= total.GC.including0s, method="bh")      # Adjusts p-values for multiple comparisons;
+Dunn.TEST
+
+PT = Dunn.TEST$res
+PT
+
+letter.output <- as.data.frame (cldList(P.adj ~ Comparison, data = PT,  threshold = 0.05))
+letter.string <- as.vector(letter.output$Letter)
+# "ab" "a"  "c"  "a"  "a"  "b" 
+
+
+########
+#####Evaluating the use of GLM models
+#######
+
+#looking at the data distribution
+descdist(total.GC.including0s$total.GC, discrete = FALSE) # This suggests to use a uniform distribution
+d <- density(total.GC.including0s$total.GC) 
+plot(d)
+histogram(~ total.GC | Treatment ,  data=total.GC.including0s, layout=c(1,6)) #This suggests to use a zero-inflated poison
+
+total.GC.including0s$total.GC.t <- total.GC.including0s$total.GC + 0.01
+total.GC.temp.model <- glm(total.GC.t ~ Treatment, family = Gamma (link ='log'), data = total.GC.including0s)
+#lifespan.temp.model <- glm(Lifespan ~ Treamtent family = Uniform (), data = individ.lifeegg.summary)
+summary(total.GC.temp.model)
+summary(glht(total.GC.temp.model, mcp(Treatment = "Tukey")))
+cld(glht(total.GC.temp.model, mcp(Treatment = "Tukey")))
+
+####compare to a zero-inflated model
+library(pscl)
+zero.infl1 <- zeroinfl(total.GC ~ Treatment, data = total.GC.including0s) #runs zero-inflated pois
+zero.infl2 = zeroinfl(total.GC ~ Treatment, data = total.GC.including0s, dist = "negbin") #runs zero-inflated nb
+norm.pois <- glm(total.GC ~ Treatment, family = poisson, data = total.GC.including0s)
+#compare
+vuong(zero.infl1, norm.pois) #zero-inflated model fits better
+summary(zero.infl1)
+summary(zero.infl2) #Theta is significant, indicating we would want to use the nb.zero version over pois?
+
+#How do I perform pair-wise comparisons of the zero-inflated model ??? emmeans
+#See this link: http://rcompanion.org/handbook/J_01.html
+Anova(zero.infl2,  type="II",  test="Chisq")
+library(multcompView)
+library(lsmeans)
+marginal = lsmeans(zero.infl2,  ~ Treatment)
+pairs(marginal, adjust="tukey")
+
+cld(marginal, alpha=0.05,  Letters=letters, adjust="tukey")
+# "a,ab,c,bc,ab,d"
+
+
+
+#offset.h = 0.5
+#offset.v = -2.5
+
+no.GC.temp.plot <- ggplot(data = total.GC.including0s, aes(x= Treatment, y = total.GC, fill = Treatment, colour = Treatment))+
+  scale_fill_manual(values= c("#88498F","#1C77C3", "#4C4C4F","#196F0B","#FF6B35","#CC0606")) +
+  scale_colour_manual(values= c("#88498F","#1C77C3", "#4C4C4F","#196F0B","#FF6B35","#CC0606")) +
+  geom_dotplot(data = total.GC.including0s, aes( y= total.GC), size = 0.2, binaxis = "y", method = "dotdensity", stackdir = "center", alpha = 0.6, stackratio = 0.5)+ #add mean and SEM
+  geom_point(data = temp.no.GC.with0s, aes(x = Treatment, y = ave.no.GC), shape=18,  size=5, color="black") +
+  geom_errorbar(data = temp.no.GC.with0s, aes(x = Treatment, y = ave.no.GC, ymin = ave.no.GC - no.GC.sd, ymax = ave.no.GC + no.GC.sd), colour = "black", size = 1.2, width = 0.5)+
+  # geom_text(data = temp.no.GC.with0s, aes(x = Treatment, y = ave.no.GC, label= c( "ab","a","c","a","a","b"), hjust=offset.h, vjust=offset.v), colour = "black", size = 8) +
+  annotate("text", x = 5, y = 11.4, colour = "black", label = "Temperature: p<0.1", size = 6) +
+  xlab ("Temperature (C)") +
+  scale_y_continuous(name="No. gonotrophic cycles", limits=c(-.2,12), breaks = seq(0,12,2), expand = c(0,0)) +
+  theme_classic(base_size = 20)+
+  theme(legend.position = 'none', panel.background = element_blank(), legend.key = element_rect( colour = NA, fill = NA), panel.border = element_rect(colour = "black", fill=NA, size=.5)) 
+
+no.GC.temp.plot
+
+
+######################################################################################
+#########################################################################################
+
+#Calculating temperature averages for GC duration and clutch size
+temp.GCdur.clutch <- Female_specific %>%
+                        dplyr::group_by(Treatment) %>%
+                        dplyr::summarise( mean.Dur = mean(ave.Duration),
+                                          Dur.sd = sd(ave.Duration), 
+                                          Dur.SEM = Dur.sd/ sqrt(length(ave.Duration)),
+                                          mean.clutch = mean(ave.no.Eggs),
+                                          clutch.sd = sd(ave.no.Eggs),
+                                          clutch.SEM = clutch.sd/sqrt(length(ave.no.Eggs)) ) %>%
+                        ungroup()
+
+temp.GCdur.clutch$Treatment <- as.factor(temp.GCdur.clutch$Treatment)
+Female_specific$Treatment <- as.factor(Female_specific$Treatment)
+#Mean GC duration (by individual)
+
+
+###stats
+res.aov <- aov(data = Female_specific, ave.Duration ~ Treatment)
+plot(res.aov,1) #females are outlieres #228,56,145
+plot(res.aov, 2) #check normality
+aov_residuals <- residuals (object = res.aov)
+shapiro.test(x = aov_residuals) # The data are not normally distributed
+
+#Non normal distribution- kruskal test
+kruskal.test(data = Female_specific, ave.Duration ~ Treatment)
+
+#Post-hoc test - Dunn test
+Dunn.TEST <- dunnTest(ave.Duration ~ Treatment, data= Female_specific, method="bh")      # Adjusts p-values for multiple comparisons;
+Dunn.TEST
+
+PT = Dunn.TEST$res
+PT
+
+letter.output <- as.data.frame (cldList(P.adj ~ Comparison, data = PT,  threshold = 0.05))
+letter.string <- as.vector(letter.output$Letter)
+# "a" "a"  "b"  "b"  "c"  "c" 
+
+########
+#####Evaluating the use of GLM models
+#######
+
+#looking at the data distribution
+descdist(Female_specific$ave.Duration, discrete = FALSE) # This suggests to use a uniform distribution
+d <- density(Female_specific$ave.Duration) 
+plot(d)
+histogram(~ ave.Duration | Treatment ,  data=Female_specific, layout=c(1,6)) #This suggests to use a zero-inflated poison
+
+#Assesses the use of a gamma distributon on these data
+fit.gamma <- fitdist(Female_specific$ave.Duration, distr = "gamma", method = "mme") #gamma fits fine
+fit.lognormal <- fitdist(Female_specific$ave.Duration, distr = "lnorm", method = "mme")
+fit.nb <- fitdist(Female_specific$ave.Duration, distr = "nbinom", method = "mme")
+
+plot(fit.gamma)
+plot(fit.lognormal)
+plot(fit.nb)
+
+duration.temp.model <- glm(ave.Duration ~ Treatment, family = Gamma (link ='log'), data = Female_specific)
+Anova(duration.temp.model)
+summary(duration.temp.model)
+summary(glht(duration.temp.model, mcp(Treatment = "Tukey")))
+cld(glht(duration.temp.model, mcp(Treatment = "Tukey")))
+# "c" "c" "b" "b" "a" "a" 
+
+#offset.h = 0.5
+#offset.v = -6.5
+
+
+
+#Plot of GC duration
+GC.dur.temp.plot <- ggplot(data = Female_specific, aes(x= Treatment, y = ave.Duration , fill = Treatment, colour = Treatment))+
+  scale_fill_manual(values= c("#88498F","#1C77C3", "#4C4C4F","#196F0B","#FF6B35","#CC0606")) +
+  scale_colour_manual(values= c("#88498F","#1C77C3", "#4C4C4F","#196F0B","#FF6B35","#CC0606")) +
+  geom_dotplot(data = Female_specific, aes( y= ave.Duration), size = 0.2, binaxis = "y", method = "dotdensity", stackdir = "center", alpha = 0.6, stackratio = 0.5)+ #add mean and SEM
+  geom_point(data = temp.GCdur.clutch, aes(x = Treatment, y = mean.Dur), shape=18,  size=5, color="black") +
+  geom_errorbar(data = temp.GCdur.clutch, aes(x = Treatment, y = mean.Dur, ymin = mean.Dur - Dur.sd, ymax = mean.Dur + Dur.sd), colour = "black", size = 1.2, width = 0.5)+
+  #geom_text(data = temp.no.GC.with0s, aes(x = Treatment, y = ave.no.GC, label= c( "a","a","b","b","c","c"), hjust=offset.h, vjust=offset.v), colour = "black", size = 8) +
+ annotate("text", x = 5, y = 28, colour = "black", label = "Temperature: p<0.1", size = 6) +
+  xlab ("Temperature (C)") +
+  scale_y_continuous(name="Duration (days)", limits=c(0,30), breaks = seq(0,30,5), expand = c(0,0)) +
+  theme_classic(base_size = 20)+
+  theme(legend.position = 'none', panel.background = element_blank(), legend.key = element_rect( colour = NA, fill = NA), panel.border = element_rect(colour = "black", fill=NA, size=.5)) 
+
+GC.dur.temp.plot
+
+
+res.aov <- aov(data = Female_specific, ave.no.Eggs ~ Treatment)
+plot(res.aov,1) #females are outlieres #119,181,69
+plot(res.aov, 2) #check normality
+aov_residuals <- residuals (object = res.aov)
+shapiro.test(x = aov_residuals) # The data are not normally distributed
+
+#Non normal distribution- kruskal test
+kruskal.test(data = Female_specific, ave.no.Eggs ~ Treatment)
+
+#Post-hoc test - Dunn test
+Dunn.TEST <- dunnTest(ave.no.Eggs ~ Treatment, data= Female_specific, method="bh")      # Adjusts p-values for multiple comparisons;
+Dunn.TEST
+
+PT = Dunn.TEST$res
+PT
+
+letter.output <- as.data.frame (cldList(P.adj ~ Comparison, data = PT,  threshold = 0.05))
+letter.string <- as.vector(letter.output$Letter)
+# "ab" "a"  "a"  "a"  "ab"  "b" 
+
+#looking at the data distribution
+descdist(Female_specific$ave.no.Eggs, discrete = FALSE) # This suggests to use a uniform distribution
+d <- density(Female_specific$ave.no.Eggs) 
+plot(d)
+histogram(~ ave.no.Eggs | Treatment ,  data=Female_specific, layout=c(1,6)) #This suggests to use a zero-inflated poison
+
+#Assesses the use of a gamma distributon on these data
+fit.gamma <- fitdist(Female_specific$ave.no.Eggs, distr = "gamma", method = "mme") #gamma fits fine
+fit.lognormal <- fitdist(Female_specific$ave.no.Eggs, distr = "lnorm", method = "mme")
+
+plot(fit.gamma)
+plot(fit.lognormal)
+
+clutch.temp.model <- glm(ave.no.Eggs ~ Treatment, family = Gamma (link ='log'), data = Female_specific)
+Anova(clutch.temp.model)
+summary(clutch.temp.model)
+summary(glht(clutch.temp.model, mcp(Treatment = "Tukey")))
+cld(glht(clutch.temp.model, mcp(Treatment = "Tukey")))
+# "c" "c" "b" "b" "a" "a" 
+
+
+#offset.h = 0.5
+#offset.v = -9
+
+#Mean clutch size (by individual)
+#Plot of GC duration
+clutch.temp.plot <- ggplot(data = Female_specific, aes(x= Treatment, y = ave.no.Eggs , fill = Treatment, colour = Treatment))+
+  scale_fill_manual(values= c("#88498F","#1C77C3", "#4C4C4F","#196F0B","#FF6B35","#CC0606")) +
+  scale_colour_manual(values= c("#88498F","#1C77C3", "#4C4C4F","#196F0B","#FF6B35","#CC0606")) +
+  geom_dotplot(data = Female_specific, aes( y= ave.no.Eggs), size = 0.2, binaxis = "y", method = "dotdensity", stackdir = "center", alpha = 0.6, stackratio = 0.5)+ #add mean and SEM
+  geom_point(data = temp.GCdur.clutch, aes(x = Treatment, y = mean.clutch), shape=18,  size=5, color="black") +
+  geom_errorbar(data = temp.GCdur.clutch, aes(x = Treatment, y = mean.clutch, ymin = mean.clutch - clutch.sd, ymax = mean.clutch + clutch.sd), colour = "black", size = 1.2, width = 0.5)+
+   #geom_text(data = temp.no.GC.with0s, aes(x = Treatment, y = ave.no.GC, label= c( "ab","a","a","a","ab","b"), hjust=offset.h, vjust=offset.v), colour = "black", size = 8) +
+ annotate("text", x = 5, y = 280, colour = "black", label = "Temperature: p<0.1", size = 6) +
+  xlab ("Temperature (C)") +
+  scale_y_continuous(name="Clutch size", limits=c(0,300), breaks = seq(0,300,50), expand = c(0,0)) +
+  theme_classic(base_size = 20)+
+  theme(legend.position = 'none', panel.background = element_blank(), legend.key = element_rect( colour = NA, fill = NA), panel.border = element_rect(colour = "black", fill=NA, size=.5)) 
+
+clutch.temp.plot
+```
+
+
+###Making a panel for Figure 1.
+```{r}
+library(cowplot)
+library(ggpubr)
+#vadjust = 1.1
+
+figure1 <- plot_grid(lifespan.temp.plot, bite.temp.plot, lifeeggs.temp.plot, no.GC.temp.plot ,GC.dur.temp.plot, clutch.temp.plot, labels=c("A", "B", "C", "D","E","F"), ncol = 2, nrow = 3, align = "hv", label_size = 20)
+figure1
+#save_plot("temptrends.png", figure1, ncol = 2, nrow = 3, base_aspect_ratio = 1.4)
+
+```
+
+
+#######################################
+###################################
+##############################
+PART TWO
+##############################
+###################################
+#######################################
+
+
+###Generating GC specific temporal trends across temperature
+Make Figures that show a) each individual value and individual trends and b) each individual value and temperature mean trends for;
+1.Daily egg prodcution / GC  -> daily egg production defined as no.Eggs / GC duration
+2. Clutch size / GC <- clutch size defined as the no.Eggs laid
+3.GC duration / GC <- GC duration defined as the time from blood meal to egg laying.
+4.Daily bite rate / GC -> bite rate defined as no.Bites/ GC duration
+
+```{r}
+#Values for each indiviudal are contained in GC_specific dataframe
+
+#Calculate daily egg production and daily bite rate for each individual
+GC_specific$daily.eggs <- GC_specific$no.Eggs/ GC_specific$Duration 
+GC_specific$daily.bites <- GC_specific$no.Bites / GC_specific$Duration
+
+temp.GCspecific.summary <-  GC_specific %>%
+                               dplyr:: group_by(Treatment,GC) %>%
+                               dplyr:: summarise(temp.daily.eggs = mean(daily.eggs) ,
+                                                 temp.daily.bites = mean(daily.bites),
+                                                 temp.clutchsize = mean(no.Eggs),
+                                                 temp.GC.duration = mean(Duration)) %>%
+                               ungroup()
+
+temp.GCspecific.summary$Treatment <- as.factor(temp.GCspecific.summary$Treatment)
+#Graph 1a - Daily egg production; include trend lines for each individual; colour by treatment
+GC_specific$Treatment <- as.factor(GC_specific$Treatment)
+
+ggplot(data = GC_specific, aes(x= GC , y = daily.eggs, colour = Treatment, fill = Treatment))+
+  scale_fill_manual(values= c("#88498F","#1C77C3", "#4C4C4F","#196F0B","#FF6B35","#CC0606")) +
+  scale_colour_manual(values= c("#88498F","#1C77C3", "#4C4C4F","#196F0B","#FF6B35","#CC0606")) +
+  geom_point(size = 3.5, shape = 18, alpha = 0.6 )+
+  geom_line(aes(group = Female), size = 1,alpha = 0.4)+
+  xlab ("Gonotrophic cycle") +
+  scale_y_continuous(name="Daily egg production", limits=c(0,200), breaks = seq(0,200,50), expand = c(0,0))
+  
+
+#Graph 1b - Daily egg production; include trend lines for each temperature mean; colour by treatment
+GC.dailyegg.plot <- ggplot(data = GC_specific, aes(x= GC , y = daily.eggs, colour = Treatment, fill = Treatment))+
+  scale_fill_manual(values= c("#88498F","#1C77C3", "#4C4C4F","#196F0B","#FF6B35","#CC0606")) +
+  scale_colour_manual(values= c("#88498F","#1C77C3", "#4C4C4F","#196F0B","#FF6B35","#CC0606")) +
+  geom_jitter(size = 1.5, alpha = 0.35, width = 0.3, height = 0, shape = 21, stroke = 1.1, fill = NA)+
+  scale_x_continuous(name ="Gonotrophic cycle", limits = c(0, 11), breaks = seq(0,11,1), expand = c(0,0)) +
+  scale_y_continuous(name="Daily egg production", limits=c(0,80), breaks = seq(0,80,10), expand = c(0,0))+
+  geom_point(data= temp.GCspecific.summary, aes(x= GC, y = temp.daily.eggs), shape = 22, size = 2.8)+
+  geom_line(data =  temp.GCspecific.summary, aes(x= GC, y = temp.daily.eggs), linetype = "solid", size = 1.5, alpha = 0.8)+
+  theme_classic(base_size = 20)+
+  theme(legend.position = 'none', panel.background = element_blank(), legend.key = element_rect( colour = NA, fill = NA), panel.border = element_rect(colour = "black", fill=NA, size=.5)) 
+
+GC.dailyegg.plot
+#This illistrates differences between temperatures better; but leaves out some data points from the graph....
+
+#Graph 2a - Clutch size; trend lines for each individual
+ggplot(data = GC_specific, aes(x= GC , y = no.Eggs , colour = Treatment, fill = Treatment))+
+  scale_fill_manual(values= c("#88498F","#1C77C3", "#4C4C4F","#196F0B","#FF6B35","#CC0606")) +
+  scale_colour_manual(values= c("#88498F","#1C77C3", "#4C4C4F","#196F0B","#FF6B35","#CC0606")) +
+  geom_point(size = 3.5, shape = 18, alpha = 0.6 )+
+  geom_line(aes(group = Female), size = 1,alpha = 0.4)+
+  xlab ("Gonotrophic cycle") +
+  ylab ("Clutch size")
+  
+#Graph 2b - Clutch size; trend lines for temperatur mean
+GC.clutchsize.plot <- ggplot(data = GC_specific, aes(x= GC , y = no.Eggs, colour = Treatment, fill = Treatment))+
+  scale_fill_manual(values= c("#88498F","#1C77C3", "#4C4C4F","#196F0B","#FF6B35","#CC0606")) +
+  scale_colour_manual(values= c("#88498F","#1C77C3", "#4C4C4F","#196F0B","#FF6B35","#CC0606")) +
+  geom_jitter(size = 1.5, alpha = 0.35, width = 0.3, height = 0, shape = 21, stroke = 1.1, fill = NA)+
+  scale_x_continuous(name ="Gonotrophic cycle", limits = c(0, 11), breaks = seq(0,11,1), expand = c(0,0)) +
+  scale_y_continuous(name="Clutch size", limits=c(0,300), breaks = seq(0,300,50), expand = c(0,0))+
+  geom_point(data= temp.GCspecific.summary, aes(x= GC, y = temp.clutchsize), shape = 22, size = 2.8)+
+  geom_line(data =  temp.GCspecific.summary, aes(x= GC, y = temp.clutchsize), linetype = "solid", size = 1.5, alpha = 0.8)+
+  theme_classic(base_size = 20)+
+  theme(legend.position = 'none', panel.background = element_blank(), legend.key = element_rect( colour = NA, fill = NA), panel.border = element_rect(colour = "black", fill=NA, size=.5)) 
+
+GC.clutchsize.plot
+
+#Graph 3a - GC duration; trend lines for each individual
+ggplot(data = GC_specific, aes(x= GC , y = Duration , colour = Treatment, fill = Treatment))+
+  scale_fill_manual(values= c("#88498F","#1C77C3", "#4C4C4F","#196F0B","#FF6B35","#CC0606")) +
+  scale_colour_manual(values= c("#88498F","#1C77C3", "#4C4C4F","#196F0B","#FF6B35","#CC0606")) +
+  geom_point(size = 3.5, shape = 18, alpha = 0.6 )+
+  geom_line(aes(group = Female), size = 1,alpha = 0.4)+
+  xlab ("Gonotrophic cycle") +
+  ylab ("Duration (days)")
+
+#Graph 3b - GC duration; trend lines for temperature mean
+GC.GCdur.plot <- ggplot(data = GC_specific, aes(x= GC , y = Duration, colour = Treatment, fill = Treatment))+
+  scale_fill_manual(values= c("#88498F","#1C77C3", "#4C4C4F","#196F0B","#FF6B35","#CC0606")) +
+  scale_colour_manual(values= c("#88498F","#1C77C3", "#4C4C4F","#196F0B","#FF6B35","#CC0606")) +
+  geom_jitter(size = 1.5, alpha = 0.35, width = 0.3, height = 0, shape = 21, stroke = 1.1, fill = NA)+
+  scale_x_continuous(name ="Gonotrophic cycle", limits = c(0, 11), breaks = seq(0,11,1), expand = c(0,0)) +
+  scale_y_continuous(name="Duration (days)", limits=c(0,30), breaks = seq(0,30,5), expand = c(0,0))+
+  geom_point(data= temp.GCspecific.summary, aes(x= GC, y = temp.GC.duration), shape = 22, size = 2.8)+
+  geom_line(data =  temp.GCspecific.summary, aes(x= GC, y = temp.GC.duration), linetype = "solid", size = 1.5, alpha = 0.8)+
+  theme_classic(base_size = 20)+
+  theme(legend.position = 'none', panel.background = element_blank(), legend.key = element_rect( colour = NA, fill = NA), panel.border = element_rect(colour = "black", fill=NA, size=.5)) 
+
+GC.GCdur.plot
+#This illistrates differences between temperatures better; but leaves out some data points from the graph....
+
+#Graph 4a - Daily bite rate; trend lines for each individual
+ggplot(data = GC_specific, aes(x= GC , y = daily.bites , colour = Treatment, fill = Treatment))+
+  scale_fill_manual(values= c("#88498F","#1C77C3", "#4C4C4F","#196F0B","#FF6B35","#CC0606")) +
+  scale_colour_manual(values= c("#88498F","#1C77C3", "#4C4C4F","#196F0B","#FF6B35","#CC0606")) +
+  geom_point(size = 3.5, shape = 18, alpha = 0.6 )+
+  geom_line(aes(group = Female), size = 1,alpha = 0.4)+
+  xlab ("Gonotrophic cycle") +
+  ylab ("Bite rate")
+
+#Graph 4b - Daily bite rate; trend lines for temperature mean
+GC.dailybite.plot <- ggplot(data = GC_specific, aes(x= GC , y = daily.bites, colour = Treatment, fill = Treatment))+
+  scale_fill_manual(values= c("#88498F","#1C77C3", "#4C4C4F","#196F0B","#FF6B35","#CC0606")) +
+  scale_colour_manual(values= c("#88498F","#1C77C3", "#4C4C4F","#196F0B","#FF6B35","#CC0606")) +
+  geom_jitter(size = 1.5, alpha = 0.35, width = 0.3, height = 0, shape = 21, stroke = 1.1, fill = NA)+
+  scale_x_continuous(name ="Gonotrophic cycle", limits = c(0, 11), breaks = seq(0,11,1), expand = c(0,0)) +
+  scale_y_continuous(name="Bite rate", limits=c(0,1), breaks = seq(0,1,.25), expand = c(0.01,0.01))+
+  geom_point(data= temp.GCspecific.summary, aes(x= GC, y = temp.daily.bites), shape = 22, size = 2.8)+
+  geom_line(data =  temp.GCspecific.summary, aes(x= GC, y = temp.daily.bites), linetype = "solid", size = 1.5, alpha = 0.8)+
+  theme_classic(base_size = 20)+
+  theme(legend.position = 'none', panel.background = element_blank(), legend.key = element_rect( colour = NA, fill = NA), panel.border = element_rect(colour = "black", fill=NA, size=.5)) 
+
+GC.dailybite.plot
+```
+Assemble a 2x2 panel of the temporal GC-specific trends for a Supplemental Figure
+```{r}
+supp1 <- plot_grid(GC.dailybite.plot, GC.GCdur.plot, GC.clutchsize.plot, GC.dailyegg.plot, labels=c("A", "B", "C", "D"), ncol = 2, nrow = 2, align = "hv", label_size = 20)
+supp1
+#save_plot("GC_trends.png", supp1, ncol = 2, nrow = 2, base_aspect_ratio = 1.4)
+
+```
+##Adding in remaining traits to dataframe to be sent to Erin for generation of TPCs using a Bayesian framework across indiviudals
+
+```{r}
+
+traits.temp.df <- data.frame(temp = temp.bite.summary$Treatment, indiv.bite = temp.bite.summary$bite.rate )
+
+traits.individ.df <- data.frame(temp = individual.bite.summary$Treatment, id = individual.bite.summary$Female, block = individual.bite.summary$Block, bite.rate = individual.bite.summary$BFD)
+
+#Merge lifespan by ID
+temporary.df <- data.frame(id = individ.lifeegg.summary$Female, lifespan = individ.lifeegg.summary$Lifespan, lifetime.eggs = individ.lifeegg.summary$total.eggs, daily.eggs = individ.lifeegg.summary$daily.eggs)
+
+#Merge together traits.individ.df with temporary.df by female ID
+traits.individ.df <- merge(traits.individ.df, temporary.df, by = "id" )
+
+#Add in 1/GC dur; EFD(1st GC); and merge
+
+#Calculating 1/GC duration as an approximation for bite rate for each individual female as well as EFD for only the first GC
+#Subset GC_specific dataframe by GC == 1
+temporary2.df <- subset(GC_specific, GC ==1, keep.all =TRUE)
+temporary2.df <- select(temporary2.df, Female, Duration, daily.eggs)
+
+temporary2.df$est.bite <- (1/ temporary2.df$Duration)
+colnames(temporary2.df)[which(names(temporary2.df) == "Female")] <- "id"
+colnames(temporary2.df)[which(names(temporary2.df) == "daily.eggs")] <- "EFD.1stGC"
+
+#Merge together traits.individ.df with temporary2.df by female ID
+#Make sure it adds 'NA' for values which are not contained in temporary2.
+traits.individ.df <- merge(traits.individ.df, temporary2.df, by = "id" , all = TRUE)
+
+#Replace na's with 0 to avoid any confusion in the future
+
+#Replace Nas in 'Count' with 0. 
+traits.individ.df[is.na(traits.individ.df)] <-0 
+
+
+#write out csv for Erin / Fitting Bayesian curves
+#write.csv(traits.individ.df, "data/UpdatedDataforErin.csv",row.names = FALSE)
+
+```
+
+

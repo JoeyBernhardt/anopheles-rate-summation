@@ -1,0 +1,205 @@
+?---
+title: "Statistical Analysis"
+author: "Kerri Miazgowicz"
+date: "May 4, 2017"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+##Survival Analysis
+#Updated March 23,2020 to check for accuracy
+#Updated April 13,2020 for gamma fitting
+###Kaplain-Meir Curves & Associated Plots
+
+###Step 1: Importing data & formating data for survival analysis
+```{r}
+
+# Set working directory
+mainDir = "C:/Users/Kerri/Desktop/Chapter1 Submission"
+setwd(mainDir)
+
+library(ggplot2)
+library(ggfortify)
+library(survival)
+library(coxme)
+library(dplyr)
+
+```
+
+
+###Step 2: Load in prior calculated data
+```{r}
+#Load in dataframe with EIP|temp values -> Shapiro
+S.EIP50.tpc.values <- read.csv("data/EIP.inf.curve.output.csv")
+
+#Load in the block specific gompertz models
+gomp.params <- read.csv("data/block.gompertz.model.params.df.csv")
+
+#generate functions for each of the gompertz models 
+#*note this is not automated; if the order of rows changes this will not work properly
+
+gompT16B1_func1 <- function(x){gomp.params$coef.a[1]*exp(-(gomp.params$coef.b[1])*exp(-(gomp.params$coef.c[1])*x))}
+gompT16B2_func1 <- function(x){gomp.params$coef.a[2]*exp(-(gomp.params$coef.b[2])*exp(-(gomp.params$coef.c[2])*x))}
+gompT20B1_func1 <- function(x){gomp.params$coef.a[3]*exp(-(gomp.params$coef.b[3])*exp(-(gomp.params$coef.c[3])*x))}
+gompT20B2_func1 <- function(x){gomp.params$coef.a[4]*exp(-(gomp.params$coef.b[4])*exp(-(gomp.params$coef.c[4])*x))}
+gompT24B1_func1 <- function(x){gomp.params$coef.a[5]*exp(-(gomp.params$coef.b[5])*exp(-(gomp.params$coef.c[5])*x))}
+gompT24B2_func1 <- function(x){gomp.params$coef.a[6]*exp(-(gomp.params$coef.b[6])*exp(-(gomp.params$coef.c[6])*x))}
+gompT28B1_func1 <- function(x){gomp.params$coef.a[7]*exp(-(gomp.params$coef.b[7])*exp(-(gomp.params$coef.c[7])*x))}
+gompT28B2_func1 <- function(x){gomp.params$coef.a[8]*exp(-(gomp.params$coef.b[8])*exp(-(gomp.params$coef.c[8])*x))}
+gompT28B3_func1 <- function(x){gomp.params$coef.a[9]*exp(-(gomp.params$coef.b[9])*exp(-(gomp.params$coef.c[9])*x))}
+gompT32B1_func1 <- function(x){gomp.params$coef.a[10]*exp(-(gomp.params$coef.b[10])*exp(-(gomp.params$coef.c[10])*x))}
+gompT32B2_func1 <- function(x){gomp.params$coef.a[11]*exp(-(gomp.params$coef.b[11])*exp(-(gomp.params$coef.c[11])*x))}
+gompT36B1_func1 <- function(x){gomp.params$coef.a[12]*exp(-(gomp.params$coef.b[12])*exp(-(gomp.params$coef.c[12])*x))}
+gompT36B2_func1 <- function(x){gomp.params$coef.a[13]*exp(-(gomp.params$coef.b[13])*exp(-(gomp.params$coef.c[13])*x))}
+```
+
+GENERATION OF GAMMA VALUES FROM SHAPIRO EIP50 DATA & Miazgowicz gompertz survival
+*requires block-specific gompertz functions*
+Technical notes: 
+i. Replicate-specific values were used from Shapiro et al. 2017 to generate a thermal performance curve with Bayesian inferenence and using uniform priors (see Trait_Fitting_Uniform & Trait_Plotting_Uniform  R code).
+ii. Model outputs (i.e. TPC) were used to infer the EIP50 values at the temperatures used in the current manuscript (@16C, 20C, 24C, 28C, 32C, 36C) -> datafile: "EIP.uni.curve.output.csv". 
+iii. The gompertz function fit to each seperate replicate was used to generate gamma (y) values; ie. the porportion of mosquitoes surviving past the latency period in the Lifetime R0 model; ie. This term, gamma, replaces e^(-mu *EIP) in the standard R0 equation.
+
+```{r}
+#Evaluate the corresponding function for gamma at EIPx
+#Note the dataframe order matters; else will not work properly
+gamma_T16_B1 <- gompT16B1_func1(S.EIP50.tpc.values$EIP[1])
+gamma_T16_B2 <- gompT16B2_func1(S.EIP50.tpc.values$EIP[1])
+gamma_T20_B1 <- gompT20B1_func1(S.EIP50.tpc.values$EIP[2])
+gamma_T20_B2 <- gompT20B2_func1(S.EIP50.tpc.values$EIP[2])
+gamma_T24_B1 <- gompT24B1_func1(S.EIP50.tpc.values$EIP[3])
+gamma_T24_B2 <- gompT24B2_func1(S.EIP50.tpc.values$EIP[3])
+gamma_T28_B1 <- gompT28B1_func1(S.EIP50.tpc.values$EIP[4])
+gamma_T28_B2 <- gompT28B2_func1(S.EIP50.tpc.values$EIP[4])
+gamma_T28_B3 <- gompT28B3_func1(S.EIP50.tpc.values$EIP[4])
+gamma_T32_B1 <- gompT32B1_func1(S.EIP50.tpc.values$EIP[5])
+gamma_T32_B2 <- gompT32B2_func1(S.EIP50.tpc.values$EIP[5])
+gamma_T36_B1 <- gompT36B1_func1(S.EIP50.tpc.values$EIP[6])
+gamma_T36_B2 <- gompT36B2_func1(S.EIP50.tpc.values$EIP[6])
+
+#Place values in a df with temp values
+gamma.values <- c(gamma_T16_B1,gamma_T16_B2,gamma_T20_B1, gamma_T20_B2, gamma_T24_B1, gamma_T24_B2, gamma_T28_B1, gamma_T28_B2, gamma_T28_B3, gamma_T32_B1, gamma_T32_B2, gamma_T36_B1, gamma_T36_B2)
+temp.values <- c(16,16,20,20,24,24,28,28,28,32,32,36,36)
+
+gamma.df <- data.frame(gamma = gamma.values, temp = temp.values)
+
+#Visualize
+plot(gamma.df$temp, gamma.df$gamma)
+
+#Write out the csv of gamma values
+#write.csv(gamma.df, "data/Miaz_gamma.values.csv", row.names = FALSE)
+
+```
+
+####step 3: Model inits
+```{r}
+#load in the data
+data.gamma <- read.csv("data/Miaz_gamma.values.csv")
+
+# Set working directory
+mainDir = "C:/Users/Kerri/Desktop/Chapter1 Submission"
+setwd(mainDir)
+
+# Check whether there's a folder in the directory for saving plots
+# If not, create one
+subDir = "saved posteriors"
+ifelse(!dir.exists(file.path(mainDir, subDir)), dir.create(file.path(mainDir, subDir)), FALSE)
+
+# Load libraties for fitting traits
+library('R2jags') # Fits Bayesian models
+library('mcmcplots') # Diagnostic plots for fits
+library('MASS') # Fits distributions for informative priors
+library(plyr) # Slices and dices data
+library(dplyr)
+library(plotrix) # For standard error function
+
+#change default plot specifications
+par(mar=c(1,1,1,1))
+
+
+##### inits Function
+inits <- function(){list(
+  cf.q = 0.01,
+  cf.Tm = 35,
+  cf.T0 = 5,
+  cf.sigma = rlnorm(1))}
+
+##### Parameters to Estimate
+parameters <- c("cf.q", "cf.T0", "cf.Tm","cf.sigma", "z.trait.mu.pred")
+
+##### MCMC Settings
+# Number of posterior distribution elements = [(ni - nb) / nt ] * nc = [ (25000 - 5000) / 8 ] * 3 = 7500
+ni <- 25000 # number of iterations in each chain
+nb <- 5000 # number of 'burn in' iterations to discard
+nt <- 8 # thinning rate - jags saves every nt iterations in each chain
+nc <- 3 # number of chains
+
+##### Derived Quantity Settings
+Temp.xs <- seq(0,45, 0.2) # temperature gradient to calculate derived quantities over
+N.Temp.xs <-length(Temp.xs)
+
+```
+
+####step 4: running the JAGS models
+1. briere_T
+2. quad_T
+```{r}
+# Get data
+data.specific <- with(data.gamma, data.frame('T' = temp, 'trait' = gamma)) # subset specific trait data from complete list
+data <- data.specific # assign trait data to variable 'data'
+
+# Organize Data for JAGS
+trait <- data$trait
+N.obs <- length(trait)
+temp <- data$T
+
+# Bundle Data
+jag.data <- list(trait = trait, N.obs = N.obs, temp = temp, Temp.xs = Temp.xs, N.Temp.xs = N.Temp.xs)
+
+# Run JAGS - **select correct model file**
+model.out <- jags(data=jag.data, inits=inits, parameters.to.save=parameters, model.file="briere_T.txt",
+                      n.thin=nt, n.chains=nc, n.burnin=nb, n.iter=ni, DIC=T, working.directory=getwd())
+
+# Examine model output & run diagnostics
+model.out$BUGSoutput$summary[1:10,]
+DIC.gamma.briereT.all <- model.out$BUGSoutput$DIC
+mcmcplot(model.out)
+
+# Save model output 
+save(model.out, file = "saved posteriors/gamma_briere_withT_all_uniform.Rdata")
+
+# Plot trait data, model mean and CIs
+plot(trait ~ jitter(T, 0.5), xlim = c(0, 45), data = data.specific, 
+     ylab = "Gamma", xlab = expression(paste("Temperature (",degree,"C)")))
+lines(model.out$BUGSoutput$summary[6:(6 + N.Temp.xs - 1), "2.5%"] ~ Temp.xs, lty = 2)
+lines(model.out$BUGSoutput$summary[6:(6 + N.Temp.xs - 1), "97.5%"] ~ Temp.xs, lty = 2)
+lines(model.out$BUGSoutput$summary[6:(6 + N.Temp.xs - 1), "mean"] ~ Temp.xs)
+
+#################################################################################
+###########same data, now quad_T model fit
+
+# Run JAGS - **select correct model file**
+model.out <- jags(data=jag.data, inits=inits, parameters.to.save=parameters, model.file="quad_T.txt",
+                      n.thin=nt, n.chains=nc, n.burnin=nb, n.iter=ni, DIC=T, working.directory=getwd())
+
+# Examine model output & run diagnostics
+model.out$BUGSoutput$summary[1:10,]
+DIC.gamma.quadT.all <- model.out$BUGSoutput$DIC
+mcmcplot(model.out)
+
+# Save model output 
+save(model.out, file = "saved posteriors/gamma_quad_withT_all_uniform.Rdata")
+
+# Plot trait data, model mean and CIs
+plot(trait ~ jitter(T, 0.5), xlim = c(0, 45), data = data.specific, 
+     ylab = "Gamma", xlab = expression(paste("Temperature (",degree,"C)")))
+lines(model.out$BUGSoutput$summary[6:(6 + N.Temp.xs - 1), "2.5%"] ~ Temp.xs, lty = 2)
+lines(model.out$BUGSoutput$summary[6:(6 + N.Temp.xs - 1), "97.5%"] ~ Temp.xs, lty = 2)
+lines(model.out$BUGSoutput$summary[6:(6 + N.Temp.xs - 1), "mean"] ~ Temp.xs)
+
+
+```

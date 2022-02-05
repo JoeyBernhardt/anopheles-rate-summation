@@ -1,0 +1,1086 @@
+?---
+title: "Statistical Analysis"
+author: "Kerri Miazgowicz"
+date: "May 4, 2017"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+##Survival Analysis
+#Updated March 23,2020 to check for accuracy
+###Kaplain-Meir Curves & Associated Plots
+
+###Step 1: Importing data & formating data for survival analysis
+```{r}
+
+# Set working directory
+mainDir = "C:/Users/Kerri/Desktop/BayesianFits AFTER 2020"
+setwd(mainDir)
+
+library(ggplot2)
+library(ggfortify)
+library(survival)
+library(coxme)
+library(dplyr)
+
+data <- read.csv("data/constant_master.csv")
+
+survivaldata <- subset(data, select = c("Date","Treatment", "Block","Donor", "Female", "Dead", "Day"))
+
+##Changing the name of "Dead" to "Event" for ease of understanding
+names(survivaldata)[6]<- paste("Event")
+
+#Removing all non-events from the dataframe
+survivaldata <- survivaldata[!(survivaldata$Event == 0),]
+
+#Changing Event ==2 to 0 to indicate right censoring
+survivaldata$Event[survivaldata$Event == 2] <- 0
+
+##Removing all instances where there is no event (0 = right censor, 1 = dead event), if any
+survivaldata <- survivaldata[complete.cases(survivaldata$Event),]
+
+#Set Treatment, Block, Donor as factors
+survivaldata$Date <-as.character(survivaldata$Date)
+survivaldata$Date2 <-as.POSIXlt(survivaldata$Date, format="%m/%d/%Y")
+survivaldata$Treatment <- as.factor(survivaldata$Treatment)
+survivaldata$Block <- as.factor(survivaldata$Block)
+survivaldata$Donor <- as.factor(survivaldata$Donor)
+survivaldata$Female <- as.factor(survivaldata$Female)
+
+```
+
+###Step 2: Generating the Kaplain-Meir Curve & Log-rank Test
+
+```{r}
+surv_Temp <- survfit(Surv(Day,Event) ~ Treatment, data = survivaldata)
+surv_Block <- survfit(Surv(Day,Event) ~ Treatment + strata(Block), data = survivaldata)
+
+
+surv.diff.Temp <- survdiff(Surv(Day,Event) ~ Treatment, data = survivaldata)
+surv.diff.Temp
+
+surv.diff.Block <- survdiff(Surv(Day, Event) ~ Treatment + strata(Block), data=survivaldata)
+surv.diff.Block
+
+#These outputs are the kaplan-meir estimates
+#Overall
+summary(surv_Temp)
+#Block-specific -> I dont't use <summary(surv_Block)> as I directly extract those estimates in the code later...
+#Export these outputs as a csv directly using the code below....
+
+#First subset based on data temperature
+#Extracting KM_estimates for each Temperature combination to a dataframe
+#Add in the first row that at time 0, surv = 1
+all.16.surv.data <- subset(survivaldata, Treatment == 16, select = c(Event, Day))
+all.20.surv.data <- subset(survivaldata, Treatment == 20, select = c(Event, Day))
+all.24.surv.data <- subset(survivaldata, Treatment == 24, select = c(Event, Day))
+all.28.surv.data <- subset(survivaldata, Treatment == 28, select = c(Event, Day))
+all.32.surv.data <- subset(survivaldata, Treatment == 32, select = c(Event, Day))
+all.36.surv.data <- subset(survivaldata, Treatment == 36, select = c(Event, Day))
+
+#Generating KM-curves  for each Temperature (should reflect the same values as the 'surv_Temp' object)
+surv16.all <- survfit(Surv(Day,Event) ~ 1, data = all.16.surv.data)
+surv20.all <- survfit(Surv(Day,Event) ~ 1, data = all.20.surv.data)
+surv24.all <- survfit(Surv(Day,Event) ~ 1, data = all.24.surv.data)
+surv28.all <- survfit(Surv(Day,Event) ~ 1, data = all.28.surv.data)
+surv32.all <- survfit(Surv(Day,Event) ~ 1, data = all.32.surv.data)
+surv36.all <- survfit(Surv(Day,Event) ~ 1, data = all.36.surv.data)
+
+#Generating the dataframe and adding a column for the day 0, 100 % survival for each temp
+temp16_values <- fortify(surv16.all)
+temp16_values$temp <- as.integer(16)
+temp16_values  <- rbind(data.frame(time = 0,n.risk=60,n.event =0, n.censor=0, surv =1 , std.err =0, upper=1,lower=1  ,temp = 16), temp16_values)
+
+temp20_values <- fortify(surv20.all)
+temp20_values$temp <- as.integer(20)
+temp20_values  <- rbind(data.frame(time = 0,n.risk=60,n.event =0, n.censor=0, surv =1 , std.err =0, upper=1,lower=1  ,temp = 20), temp20_values)
+
+temp24_values <- fortify(surv24.all)
+temp24_values$temp <- as.integer(24)
+temp24_values  <- rbind(data.frame(time = 0,n.risk=60,n.event =0, n.censor=0, surv =1 , std.err =0, upper=1,lower=1  ,temp = 24), temp24_values)
+
+temp28_values <- fortify(surv28.all)
+temp28_values$temp <- as.integer(28)
+temp28_values  <- rbind(data.frame(time = 0,n.risk=90,n.event =0, n.censor=0, surv =1 , std.err =0, upper=1,lower=1  ,temp = 28), temp28_values)
+
+temp32_values <- fortify(surv32.all)
+temp32_values$temp <- as.integer(32)
+temp32_values  <- rbind(data.frame(time = 0,n.risk=60,n.event =0, n.censor=0, surv =1 , std.err =0, upper=1,lower=1  ,temp = 32), temp32_values)
+
+temp36_values <- fortify(surv36.all)
+temp36_values$temp <- as.integer(36)
+temp36_values  <- rbind(data.frame(time = 0,n.risk=60,n.event =0, n.censor=0, surv =1 , std.err =0, upper=1,lower=1  ,temp = 36), temp36_values)
+
+###Combining each single temp dataframe back into a master one
+combined.data.KM.estimates <- rbind(temp16_values,temp20_values,temp24_values,temp28_values,temp32_values,temp36_values)
+
+write.csv(combined.data.KM.estimates,"data/KM_estimates.csv", row.names = FALSE )
+```
+
+###Step 3: Plotting the Kaplain-Meir Curve 
+```{r echo= FALSE}
+library(survminer)
+#KM curve for all data combined
+ggsurvplot(surv_Temp, data = survivaldata, conf.int = TRUE,
+           palette =  c("#88498F","#1C77C3", "#4C4C4F","#196F0B","#FF6B35","#CC0606"),
+           size = 1.2,
+           linetype = "solid",
+           xlab = "Days at treatment",
+           break.x.by = 5,
+           break.y.by = .1,
+           legend = c(0.89,0.754),
+           xlim = c(0,60,5),
+           legend.labs = c("16C","20C","24C","28C","32C","36C"),
+           legend.title = "Temperature",
+           font.tickslab = c (12, "plain", "black"),
+           ggtheme= theme_bw(base_size = 16))
+
+#KM curve for each replicate seperately
+ggsurvplot(surv_Block, data = survivaldata, conf.int = FALSE,
+           palette =  c("#88498F","#A87AAD","#1C77C3","#599CD3", "#4C4C4F","#7C7C7F","#196F0B","#428937","#81B079","#FF6B35","#FF8559","#CC0606","#D94949"),
+           size = 1.2,
+           linetype = "solid",
+           xlab = "Days at treatment",
+           break.x.by = 5,
+           break.y.by = .1,
+           xlim = c(0,60,5),
+           legend.labs = c("16C-a","16C-b","20C-a","20C-b", "24C-a", "24C-b","28C-a","28-bC", "28C-c","32C-a", "32C-b","36C-a", "36C-b"),
+           legend.title = "Temperature",
+           font.tickslab = c (12, "plain", "black"),
+           ggtheme= theme_bw(base_size = 16))
+
+```
+
+###Step 4: Determine the best fitting curve distribution for the survival data
+Finding the best curve distribution to fit the KM-estimates
+Broken up into two parts;
+1. Find best distribution to all of the data at once
+2. Subset the survival data into each temperature, and then apply this function to the resulting curve, see if that changes anything
+
+```{r}
+library(flexsurv)
+surv <- with(survivaldata, Surv(Day,Event) ~ Treatment)
+
+####PART ONE:
+##Determining the best curve fit for survival data ALL DATA TOGETHER
+
+#EXPONENTIAL FIT
+model<- flexsurvreg(surv, dist = "exp")
+model
+
+plot(model, ylab="Cumulative prob. of survival", xlab="Days at treatment", main = "Exponetial: AIC = 2979" )
+#legend("topright",legend=c("KM Plot","Fitted"), lty=c(1,1),col=c("black","red"), cex=0.5)
+
+#wEIBULL FIT
+model2<-flexsurvreg(surv, dist="weibull") # fit weibull model
+model2
+
+plot(model2, ylab="Cumulative prob. of survival", xlab="Days at treatment", main = "Weibull: AIC = 2773" )
+
+#Log-NORMAL FIT
+model3<-flexsurvreg(surv, dist="lnorm") # fit the log-normal model
+model3
+
+plot(model3, ylab="Cumulative prob. of survival", xlab="Days at treatment", main = "Log-Normal: AIC = 2913" )
+
+#Gamma FIT
+model4<-flexsurvreg(surv, dist="gamma") # fit the gamma model
+model4
+
+plot(model4, ylab="Cumulative prob. of survival", xlab="Days at treatment", main = "Gamma: AIC = 2816" )
+
+#Gompertz
+model5<-flexsurvreg(surv, dist="gompertz") # fit the gompertz model
+model5
+
+plot(model5, ylab="Cumulative prob. of survival", xlab="Days at treatment", main = "Gompertz: AIC = 2758") 
+
+
+#General F-dist
+model6<-flexsurvreg(surv, dist="genf") # fit the GenF model
+model6
+
+plot(model6, ylab="Survival probability", xlab="Time", main = "GenF:AIC = 2734" ) #lower AIC, but visually a worse fit, also model did not converge..
+
+
+####PART TWO; subsetting the survival dataset by temperature
+
+#Subsetting the survival data
+KM_data16 <- subset(survivaldata, Treatment == 16, select = c(Event, Day))
+KM_data20 <- subset(survivaldata, Treatment == 20, select = c(Event, Day))
+KM_data24 <- subset(survivaldata, Treatment == 24, select = c(Event, Day))
+KM_data28 <- subset(survivaldata, Treatment == 28, select = c(Event, Day))
+KM_data32 <- subset(survivaldata, Treatment == 32, select = c(Event, Day))
+KM_data36 <- subset(survivaldata, Treatment == 36, select = c(Event, Day))
+
+#Generating flexsurv objects for each temperature treatement
+surv16 <- with(KM_data16, Surv(Day,Event)~1)
+surv20 <- with(KM_data20, Surv(Day,Event)~1)
+surv24 <- with(KM_data24, Surv(Day,Event)~1)
+surv28 <- with(KM_data28, Surv(Day,Event)~1)
+surv32 <- with(KM_data32, Surv(Day,Event)~1)
+surv36 <- with(KM_data36, Surv(Day,Event)~1)
+
+#Applying model fits to each
+#EXPONENTIAL
+KM.exp16 <- flexsurvreg(surv16, dist = "exp")
+KM.exp16 #AIC 453
+plot(KM.exp16, ylab="Survival probability", xlab="Time", main = " 16C: Exponetial: AIC=451" )
+KM.exp20 <- flexsurvreg(surv20, dist = "exp")
+KM.exp20 #AIC 451
+plot(KM.exp20, ylab="Survival probability", xlab="Time", main = " 20C: Exponetial: AIC= 441" )
+KM.exp24 <- flexsurvreg(surv24, dist = "exp")
+KM.exp24 #AIC 487
+plot(KM.exp24, ylab="Survival probability", xlab="Time", main = " 24C: Exponetial: AIC=496" )
+KM.exp28 <- flexsurvreg(surv28, dist = "exp")
+KM.exp28 #AIC 759
+plot(KM.exp28, ylab="Survival probability", xlab="Time", main = " 28C: Exponetial: AIC= 759" )
+KM.exp32 <- flexsurvreg(surv32, dist = "exp")
+KM.exp32 #AIC 447
+plot(KM.exp32, ylab="Survival probability", xlab="Time", main = " 32C: Exponetial: AIC= 447" )
+KM.exp36 <- flexsurvreg(surv36, dist = "exp")
+KM.exp36 #AIC 380
+plot(KM.exp36, ylab="Survival probability", xlab="Time", main = " 36C: Exponetial: AIC= 380" )
+
+#LOG-LOGISTIC
+KM.llogis16 <- flexsurvreg(surv16, dist = "llogis")
+KM.llogis16 #AIC 439
+plot(KM.llogis16, ylab="Survival probability", xlab="Time", main = " 16C: llogis : AIC=437" )
+KM.llogis20 <- flexsurvreg(surv20, dist = "llogis")
+KM.llogis20 #AIC 430
+plot(KM.llogis20, ylab="Survival probability", xlab="Time", main = " 20C: llogis : AIC= 421" )
+KM.llogis24 <- flexsurvreg(surv24, dist = "llogis")
+KM.llogis24 #AIC 441
+plot(KM.llogis24, ylab="Survival probability", xlab="Time", main = " 24C: llogis : AIC=448" )
+KM.llogis28 <- flexsurvreg(surv28, dist = "llogis")
+KM.llogis28 #AIC 735
+plot(KM.llogis28, ylab="Survival probability", xlab="Time", main = " 28C: llogis : AIC= 734" )
+KM.llogis32 <- flexsurvreg(surv32, dist = "llogis")
+KM.llogis32 #AIC 448
+plot(KM.llogis32, ylab="Survival probability", xlab="Time", main = " 32C: llogis : AIC= 448" )
+KM.llogis36 <- flexsurvreg(surv36, dist = "llogis")
+KM.llogis36 #AIC 355
+plot(KM.llogis36, ylab="Survival probability", xlab="Time", main = " 36C: llogis : AIC= 355" )
+
+#GAMMA
+KM.gamma16 <-flexsurvreg(surv16, dist="gamma")
+KM.gamma16
+KM.gamma20 <-flexsurvreg(surv20, dist="gamma")
+KM.gamma20
+KM.gamma24 <-flexsurvreg(surv24, dist="gamma")
+KM.gamma24
+KM.gamma28 <-flexsurvreg(surv28, dist="gamma")
+KM.gamma28
+KM.gamma32 <-flexsurvreg(surv32, dist="gamma")
+KM.gamma32
+KM.gamma36 <-flexsurvreg(surv36, dist="gamma")
+KM.gamma36
+
+
+#Log-normal
+KM.lnorm16 <-flexsurvreg(surv16, dist="lnorm")
+KM.lnorm16
+KM.lnorm20 <-flexsurvreg(surv20, dist="lnorm")
+KM.lnorm20
+KM.lnorm24 <-flexsurvreg(surv24, dist="lnorm")
+KM.lnorm24
+KM.lnorm28 <-flexsurvreg(surv28, dist="lnorm")
+KM.lnorm28
+KM.lnorm32 <-flexsurvreg(surv32, dist="lnorm")
+KM.lnorm32
+KM.lnorm36 <-flexsurvreg(surv36, dist="lnorm")
+KM.lnorm36
+
+
+#WEIBULL
+KM.weibull16 <- flexsurvreg(surv16, dist = "weibull")
+KM.weibull16 #AIC 431
+plot(KM.weibull16, ylab="Survival probability", xlab="Time", main = " 16C: weibull : AIC=431" )
+KM.weibull20 <- flexsurvreg(surv20, dist = "weibull")
+KM.weibull20 #AIC 414
+plot(KM.weibull20, ylab="Survival probability", xlab="Time", main = " 20C: weibull : AIC= 414" )
+KM.weibull24 <- flexsurvreg(surv24, dist = "weibull")
+KM.weibull24 #AIC 443
+plot(KM.weibull24, ylab="Survival probability", xlab="Time", main = " 24C: weibull : AIC=443" )
+KM.weibull28 <- flexsurvreg(surv28, dist = "weibull")
+KM.weibull28 #AIC 707
+plot(KM.weibull28, ylab="Survival probability", xlab="Time", main = " 28C: weibull : AIC= 707" )
+KM.weibull32 <- flexsurvreg(surv32, dist = "weibull")
+KM.weibull32 #AIC 432
+plot(KM.weibull32, ylab="Survival probability", xlab="Time", main = " 32C: weibull : AIC= 432" )
+KM.weibull36 <- flexsurvreg(surv36, dist = "weibull")
+KM.weibull36 #AIC 336
+plot(KM.weibull36, ylab="Survival probability", xlab="Time", main = " 36C: weibull : AIC= 336" )
+
+#GOMPERTZ
+KM.gompertz16 <- flexsurvreg(surv16, dist = "gompertz")
+KM.gompertz16 #AIC 430
+plot(KM.gompertz16, ylab="Survival probability", xlab="Time", main = " 16C: gompertz : AIC=43" )
+KM.gompertz20 <- flexsurvreg(surv20, dist = "gompertz")
+KM.gompertz20 #AIC 409
+plot(KM.gompertz20, ylab="Survival probability", xlab="Time", main = " 20C: gompertz : AIC= 409" )
+KM.gompertz24 <- flexsurvreg(surv24, dist = "gompertz")
+KM.gompertz24 #AIC 446
+plot(KM.gompertz24, ylab="Survival probability", xlab="Time", main = " 24C: gompertz : AIC=446" )
+KM.gompertz28 <- flexsurvreg(surv28, dist = "gompertz")
+KM.gompertz28 #AIC 693
+plot(KM.gompertz28, ylab="Survival probability", xlab="Time", main = " 28C: gompertz : AIC= 693" )
+KM.gompertz32 <- flexsurvreg(surv32, dist = "gompertz")
+KM.gompertz32 #AIC 426
+plot(KM.gompertz32, ylab="Survival probability", xlab="Time", main = " 32C: gompertz : AIC= 426" )
+KM.gompertz36 <- flexsurvreg(surv36, dist = "gompertz")
+KM.gompertz36 #AIC 325
+plot(KM.gompertz36, ylab="Survival probability", xlab="Time", main = " 36C: gompertz : AIC= 325" )
+
+#To show difference between flex surv fits and nlsfit functions
+#plot(KM.gompertz24, ylab="Survival probability", xlab="Time", main = " 24C: gompertz : AIC=446" )
+#plot(Gompz_24_func1, 0, 60, add = TRUE, col = "blue")
+#plot(test_24_hazard_fun2, 0,60, add= TRUE, col = "purple")
+
+#Define the function as I understand it Gomp hazard function = m = rate exp(shape *x)
+#test_24_hazard_fun <- function(x){-5.89571734*exp(0.06651923*x)}
+
+#plot(KM.gompertz28, ylab="Survival probability", xlab="Time", main = " 24C: gompertz : AIC=446" )
+#plot(Gompz_28_func1, 0, 60, add = TRUE, col = "blue")
+
+
+```
+
+
+##Step 5: Calculating and Plotting life expectancy
+(A)ALL DATA - combined from replicates - used to generate Figure 2 partb
+  i. [nlsfit package] used to approximate a Gompertz curve to each temperature treatment
+  ii. Used arbitary initial start values to get model to converge, than converged values were reused as starat values to confirm model was well fit
+  iii. AIC values are different than above due to a different package to fit the model
+
+(B)To obtain error bars on the life expectancy graph
+  i.Split the survival data into each replicates
+  ii. Refit best-fitting curve (Gompertz) on these data [nlsfit package]
+  iii. Integrate for life expectancy
+  iv. Calculate the average and SEM for the graph.
+  
+### Part A: of Step 5 
+```{r}
+library(easynls)
+
+KM_estimates <- read.csv("data/KM_estimates.csv")
+colnames(KM_estimates)[9] <- 'treatment'
+#PART ONE: GENERATING GOMPERTZ CURVE FUNCTIONS TO COMBINED TREATMENT 
+
+#Temperature = 16C
+data16 <- KM_estimates[(KM_estimates$treatment == 16),]
+datatest16 <- NA
+datatest16<- cbind(data16$time,data16$surv)
+datatest16 <- as.data.frame(datatest16)
+names(datatest16) <- c("age", "survival")
+gomp16 <- nlsfit(datatest16, model = 10, start = c(1,.05, -0.5))
+gomp16
+gomp16params <- gomp16$Parameters
+gomp16params
+#10 = "y~a*exp(-b*exp(-c*x)" gompertz
+Gompz_16_func1 <- function(x) {gomp16params$survival[1] *exp(-(gomp16params$survival[2])*exp(-(gomp16params$survival[3])*x))}
+
+#Temperature = 20C
+data20 <- KM_estimates[(KM_estimates$treatment == 20),]
+datatest20 <- NA
+datatest20<- cbind(data20$time,data20$surv)
+datatest20 <- as.data.frame(datatest20)
+names(datatest20) <- c("age", "survival")
+gomp20 <- nlsfit(datatest20, model = 10, start = c(1,.05, -0.05))
+gomp20 
+gomp20params <- gomp20$Parameters
+#10 = "y~a*exp(-b*exp(-c*x)" gompertz
+Gompz_20_func1 <- function(x) {gomp20params$survival[1] *exp(-(gomp20params$survival[2])*exp(-(gomp20params$survival[3])*x))}
+
+#Temperature = 24C
+data24 <- KM_estimates[(KM_estimates$treatment == 24),]
+datatest24 <- NA
+datatest24<- cbind(data24$time,data24$surv)
+datatest24 <- as.data.frame(datatest24)
+names(datatest24) <- c("age", "survival")
+gomp24 <- nlsfit(datatest24, model = 10, start = c(1.13772,.08, -0.05))
+gomp24
+gomp24params <- gomp24$Parameters
+#10 = "y~a*exp(-b*exp(-c*x)" gompertz
+Gompz_24_func1 <- function(x) {gomp24params$survival[1] *exp(-(gomp24params$survival[2])*exp(-(gomp24params$survival[3])*x))}
+
+#Temperature = 28C
+data28 <- KM_estimates[(KM_estimates$treatment == 28),]
+datatest28 <- NA
+datatest28<- cbind(data28$time,data28$surv)
+datatest28 <- as.data.frame(datatest28)
+names(datatest28) <- c("age", "survival")
+gomp28 <- nlsfit(datatest28, model = 10, start = c(1.123,.13, -0.05))
+gomp28
+gomp28params <- gomp28$Parameters
+#10 = "y~a*exp(-b*exp(-c*x)" gompertz
+Gompz_28_func1 <- function(x) {gomp28params$survival[1] *exp(-(gomp28params$survival[2])*exp(-(gomp28params$survival[3])*x))}
+
+
+#Temperature = 32C
+data32 <- KM_estimates[(KM_estimates$treatment == 32),]
+datatest32 <- NA
+datatest32<- cbind(data32$time,data32$surv)
+datatest32 <- as.data.frame(datatest32)
+names(datatest32) <- c("age", "survival")
+gomp32 <- nlsfit(datatest32, model = 10, start = c(1.5,.43, -0.06))
+gomp32 
+gomp32params <- gomp32$Parameters
+#10 = "y~a*exp(-b*exp(-c*x)" gompertz
+Gompz_32_func1 <- function(x) {gomp32params$survival[1] *exp(-(gomp32params$survival[2])*exp(-(gomp32params$survival[3])*x))}
+
+
+#Temperature = 36C
+data36 <- KM_estimates[(KM_estimates$treatment == 36),]
+datatest36 <- NA
+datatest36<- cbind(data36$time,data36$surv)
+datatest36 <- as.data.frame(datatest36)
+names(datatest36) <- c("age", "survival")
+gomp36 <- nlsfit(datatest36, model = 10, start = c(1,.07, -0.24))
+gomp36 
+gomp36params <- gomp36$Parameters
+#10 = "y~a*exp(-b*exp(-c*x)" gompertz
+Gompz_36_func1 <- function(x) {gomp36params$survival[1] *exp(-(gomp36params$survival[2])*exp(-(gomp36params$survival[3])*x))}
+
+#Put all of the Gompertz model parameters together into a dataframe and export
+combined.data.gompertz.model.params.df <- data.frame(
+  coef.a = c(gomp16params$survival[1],gomp20params$survival[1],gomp24params$survival[1],gomp28params$survival[1],gomp32params$survival[1],gomp36params$survival[1]),
+  coef.b = c(gomp16params$survival[2], gomp20params$survival[2],gomp24params$survival[2],gomp28params$survival[2],gomp32params$survival[2],gomp36params$survival[2]),
+  coef.c =c(gomp16params$survival[3], gomp20params$survival[3],gomp24params$survival[3],gomp28params$survival[3],gomp32params$survival[3],gomp36params$survival[3]),
+  temp = c(16,20,24,28,32,36))
+
+write.csv(combined.data.gompertz.model.params.df,"data/combined.temp.gompertz.params.csv", row.names = FALSE )
+
+```
+
+##Step 5 Part A PLOT:
+##Overlay of KM_estimates with Gompertz curve fits. 
+##Main survival figure
+
+Gompertz curve fits to KM_estimates
+```{r, echo = TRUE}
+####MY FAVORITE SO FAR #######
+KM_estimates$treatment <- as.factor(KM_estimates$treatment)
+
+#need to fix error in KM_estimates table so that if goes to zero (conditional in ymin = statement)
+
+survivor.plot <- ggplot(data= KM_estimates, aes(x=time, y= surv, colour = treatment, group = treatment)) + 
+        scale_colour_manual("Treatment", values= c("#88498F","#1C77C3", "#4C4C4F","#196F0B","#FF6B35","#CC0606")) +
+        scale_fill_manual("Treatment", values= c("#88498F","#1C77C3", "#4C4C4F","#196F0B","#FF6B35","#CC0606")) +
+        scale_x_continuous(name="Days at treatment", limits = c (0, 60), breaks = seq(0,60,5), expand = c(0.02,0.02)) +
+        scale_y_continuous(name="Survivorship", limits=c(0, 1), breaks = seq(0,1,0.1), expand = c(0.02,0.02)) +
+        geom_ribbon(aes(ymax = upper, ymin = lower, fill = treatment), alpha = 0.3, color = NA)+
+        #geom_point(size = 1.7) +
+        geom_line(size =1.1) +
+        theme_classic( base_size = 20) +
+        theme(legend.position = 'none', panel.background = element_blank(), legend.key = element_rect( colour = NA, fill = NA), panel.border = element_rect(colour = "black", fill=NA, size=.5)) +
+        guides(shape = "none", fill = FALSE) +
+      stat_function(fun = Gompz_16_func1, colour = "#88498F", linetype = "dashed", size = 1.2) +
+      stat_function(fun = Gompz_20_func1, colour = "#1C77C3", linetype = "dashed", size = 1.2) +
+      stat_function(fun = Gompz_24_func1, colour = "#4C4C4F", linetype = "dashed", size = 1.2) +
+      stat_function(fun = Gompz_28_func1, colour = "#196F0B", linetype = "dashed", size = 1.2) +
+      stat_function(fun = Gompz_32_func1, colour = "#FF6B35", linetype = "dashed", size = 1.2) +
+      stat_function(fun = Gompz_36_func1, colour = "#CC0606", linetype = "dashed", size = 1.2) 
+      #coord_fixed(ratio = 28)
+  
+  
+plot(survivor.plot)
+figure2part2 <- ggarrange(survivor.plot, labels = c("c"), font.label = list(size =20))
+
+ggsave("plots/figure2part2_version2.png", figure2part2, path = NULL, scale = 1, width = 8, height = 4, device = 'png', dpi = 500)
+
+
+```
+
+###Part B of Step 5
+## Fit a gompertz curve to KM_estimates from each block seperately to be able to have errror bars on the life expectancy graph. As well as to be able to estimate gamma from block specific gompertz and exp values.
+```{r}
+#Generate KM estimates for each Block
+library(ggfortify)
+library(dplyr)
+library(easynls)
+
+#Subsetting the survival data
+KM_16_B1 <- subset(survivaldata, Treatment == 16 & Block == 2, select = c(Event, Day))
+KM_16_B2 <- subset(survivaldata, Treatment == 16 & Block == 3, select = c(Event, Day))
+KM_20_B1 <- subset(survivaldata, Treatment == 20 & Block == 2, select = c(Event, Day))
+KM_20_B2 <- subset(survivaldata, Treatment == 20 & Block == 3, select = c(Event, Day))
+KM_24_B1 <- subset(survivaldata, Treatment == 24 & Block == 2, select = c(Event, Day))
+KM_24_B2 <- subset(survivaldata, Treatment == 24 & Block == 3, select = c(Event, Day))
+KM_28_B1 <- subset(survivaldata, Treatment == 28 & Block == 2, select = c(Event, Day))
+KM_28_B2 <- subset(survivaldata, Treatment == 28 & Block == 3, select = c(Event, Day))
+KM_28_B3 <- subset(survivaldata, Treatment == 28 & Block == 4, select = c(Event, Day))
+KM_32_B1 <- subset(survivaldata, Treatment == 32 & Block == 2, select = c(Event, Day))
+KM_32_B2 <- subset(survivaldata, Treatment == 32 & Block == 5, select = c(Event, Day))
+KM_36_B1 <- subset(survivaldata, Treatment == 36 & Block == 2, select = c(Event, Day))
+KM_36_B2 <- subset(survivaldata, Treatment == 36 & Block == 5, select = c(Event, Day))
+
+#Generating KM-curves  for each Temperature | Block combination
+surv16_B1 <- survfit(Surv(Day,Event) ~ 1, data = KM_16_B1)
+surv16_B2 <- survfit(Surv(Day,Event) ~ 1, data = KM_16_B2)
+surv20_B1 <- survfit(Surv(Day,Event) ~ 1, data = KM_20_B1)
+surv20_B2 <- survfit(Surv(Day,Event) ~ 1, data = KM_20_B2)
+surv24_B1 <- survfit(Surv(Day,Event) ~ 1, data = KM_24_B1)
+surv24_B2 <- survfit(Surv(Day,Event) ~ 1, data = KM_24_B2)
+surv28_B1 <- survfit(Surv(Day,Event) ~ 1, data = KM_28_B1)
+surv28_B2 <- survfit(Surv(Day,Event) ~ 1, data = KM_28_B2)
+surv28_B3 <- survfit(Surv(Day,Event) ~ 1, data = KM_28_B3)
+surv32_B1 <- survfit(Surv(Day,Event) ~ 1, data = KM_32_B1)
+surv32_B2 <- survfit(Surv(Day,Event) ~ 1, data = KM_32_B2)
+surv36_B1 <- survfit(Surv(Day,Event) ~ 1, data = KM_36_B1)
+surv36_B2 <- survfit(Surv(Day,Event) ~ 1, data = KM_36_B2)
+
+#Extracting KM_estimates for each Temperature | Block combination to a dataframe
+#Add in the first row that at time 0, surv = 1
+
+temp16_B1_KM_values <- fortify(surv16_B1)
+temp16_B1_KM_values <- cbind (temp16_B1_KM_values$time, temp16_B1_KM_values$surv)
+temp16_B1_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp16_B1_KM_values)
+
+temp16_B2_KM_values <- fortify(surv16_B2)
+temp16_B2_KM_values <- cbind (temp16_B2_KM_values$time, temp16_B2_KM_values$surv)
+temp16_B2_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp16_B2_KM_values)
+
+temp20_B1_KM_values <- fortify(surv20_B1)
+temp20_B1_KM_values <- cbind (temp20_B1_KM_values$time, temp20_B1_KM_values$surv)
+temp20_B1_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp20_B1_KM_values)
+
+temp20_B2_KM_values <- fortify(surv20_B2)
+temp20_B2_KM_values <- cbind (temp20_B2_KM_values$time, temp20_B2_KM_values$surv)
+temp20_B2_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp20_B2_KM_values)
+
+temp24_B1_KM_values <- fortify(surv24_B1)
+temp24_B1_KM_values <- cbind (temp24_B1_KM_values$time, temp24_B1_KM_values$surv)
+temp24_B1_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp24_B1_KM_values)
+
+temp24_B2_KM_values <- fortify(surv24_B2)
+temp24_B2_KM_values <- cbind (temp24_B2_KM_values$time, temp24_B2_KM_values$surv)
+temp24_B2_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp24_B2_KM_values)
+
+temp28_B1_KM_values <- fortify(surv28_B1)
+temp28_B1_KM_values <- cbind (temp28_B1_KM_values$time, temp28_B1_KM_values$surv)
+temp28_B1_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp28_B1_KM_values)
+
+temp28_B2_KM_values <- fortify(surv28_B2)
+temp28_B2_KM_values <- cbind (temp28_B2_KM_values$time, temp28_B2_KM_values$surv)
+temp28_B2_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp28_B2_KM_values)
+
+temp28_B3_KM_values <- fortify(surv28_B3)
+temp28_B3_KM_values <- cbind (temp28_B3_KM_values$time, temp28_B3_KM_values$surv)
+temp28_B3_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp28_B3_KM_values)
+
+temp32_B1_KM_values <- fortify(surv32_B1)
+temp32_B1_KM_values <- cbind (temp32_B1_KM_values$time, temp32_B1_KM_values$surv)
+temp32_B1_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp32_B1_KM_values)
+
+temp32_B2_KM_values <- fortify(surv32_B2)
+temp32_B2_KM_values <- cbind (temp32_B2_KM_values$time, temp32_B2_KM_values$surv)
+temp32_B2_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp32_B2_KM_values)
+
+temp36_B1_KM_values <- fortify(surv36_B1)
+temp36_B1_KM_values <- cbind (temp36_B1_KM_values$time, temp36_B1_KM_values$surv)
+temp36_B1_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp36_B1_KM_values)
+
+temp36_B2_KM_values <- fortify(surv36_B2)
+temp36_B2_KM_values <- cbind (temp36_B2_KM_values$time, temp36_B2_KM_values$surv)
+temp36_B2_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp36_B2_KM_values)
+
+
+#Fitting a Gompertz curve to each Temperature | Block combination 
+#1 - Temp16_Block1
+gompT16B1 <- nlsfit(temp16_B1_KM_values, model = 10, start = c(1,.05, -0.05))
+gompT16B1
+
+gompT16B1_func1 <- function(x) {gompT16B1$Parameters[1,]*exp(-(gompT16B1$Parameters[2,])*exp(-(gompT16B1$Parameters[3,])*x))}
+#2- Temp 16_Block2
+gompT16B2 <- nlsfit(temp16_B2_KM_values, model = 10, start = c(1.22,.2, -0.03))
+gompT16B2
+
+gompT16B2_func1 <- function(x) {gompT16B2$Parameters[1,]*exp(-(gompT16B2$Parameters[2,])*exp(-(gompT16B2$Parameters[3,])*x))}
+#3- Temp 20_Block1
+gompT20B1 <- nlsfit(temp20_B1_KM_values, model = 10, start = c(1,.05, -0.05))
+gompT20B1
+
+gompT20B1_func1 <- function(x) {gompT20B1$Parameters[1,]*exp(-(gompT20B1$Parameters[2,])*exp(-(gompT20B1$Parameters[3,])*x))}
+#4- Temp 20_Block2
+gompT20B2 <- nlsfit(temp20_B2_KM_values, model = 10, start = c(1,.05, -0.05))
+gompT20B2
+
+gompT20B2_func1 <- function(x) {gompT20B2$Parameters[1,]*exp(-(gompT20B2$Parameters[2,])*exp(-(gompT20B2$Parameters[3,])*x))}
+#5- Temp 24_Block1
+gompT24B1 <- nlsfit(temp24_B1_KM_values, model = 10, start = c(1,.05, -0.05))
+gompT24B1
+
+gompT24B1_func1 <- function(x) {gompT24B1$Parameters[1,]*exp(-(gompT24B1$Parameters[2,])*exp(-(gompT24B1$Parameters[3,])*x))}
+#6- Temp 24_Block2
+gompT24B2 <- nlsfit(temp24_B2_KM_values, model = 10, start = c(1,.05, -0.05))
+gompT24B2
+
+gompT24B2_func1 <- function(x) {gompT24B2$Parameters[1,]*exp(-(gompT24B2$Parameters[2,])*exp(-(gompT24B2$Parameters[3,])*x))}
+#7- Temp 28_Block1
+gompT28B1 <- nlsfit(temp28_B1_KM_values, model = 10, start = c(1,.05, -0.05))
+gompT28B1
+
+gompT28B1_func1 <- function(x) {gompT28B1$Parameters[1,]*exp(-(gompT28B1$Parameters[2,])*exp(-(gompT28B1$Parameters[3,])*x))}
+#8- Temp 28_Block2
+gompT28B2 <- nlsfit(temp28_B2_KM_values, model = 10, start = c(1.5,.4, -0.05))
+gompT28B2
+
+gompT28B2_func1 <- function(x) {gompT28B2$Parameters[1,]*exp(-(gompT28B2$Parameters[2,])*exp(-(gompT28B2$Parameters[3,])*x))}
+
+#9- Temp 28_Block3
+gompT28B3 <- nlsfit(temp28_B3_KM_values, model = 10, start = c(1,.05, -0.05))
+gompT28B3
+
+gompT28B3_func1 <- function(x) {gompT28B3$Parameters[1,]*exp(-(gompT28B3$Parameters[2,])*exp(-(gompT28B3$Parameters[3,])*x))}
+#10- Temp 32_Block1
+gompT32B1 <- nlsfit(temp32_B1_KM_values, model = 10, start = c(1.5,.4, -0.07))
+gompT32B1
+
+gompT32B1_func1 <- function(x) {gompT32B1$Parameters[1,]*exp(-(gompT32B1$Parameters[2,])*exp(-(gompT32B1$Parameters[3,])*x))}
+#11- Temp 32_Block2
+gompT32B2 <- nlsfit(temp32_B2_KM_values, model = 10, start = c(1.5,.4, -0.07))
+gompT32B2
+
+gompT32B2_func1 <- function(x) {gompT32B2$Parameters[1,]*exp(-(gompT32B2$Parameters[2,])*exp(-(gompT32B2$Parameters[3,])*x))}
+#12- Temp 36_Block1
+gompT36B1 <- nlsfit(temp36_B1_KM_values, model = 10, start = c(1.5,.4, -0.07))
+gompT36B1
+
+gompT36B1_func1 <- function(x) {gompT36B1$Parameters[1,]*exp(-(gompT36B1$Parameters[2,])*exp(-(gompT36B1$Parameters[3,])*x))}
+#13- Temp 36_Block2
+gompT36B2 <- nlsfit(temp36_B2_KM_values, model = 10, start = c(1,.2, -0.2))
+gompT36B2
+
+gompT36B2_func1 <- function(x) {gompT36B2$Parameters[1,]*exp(-(gompT36B2$Parameters[2,])*exp(-(gompT36B2$Parameters[3,])*x))}
+
+#Extract the gompertz fit parameters for each Temperature | Block combination
+block.gompertz.model.params.df <- data.frame(
+  coef.a = c(gompT16B1$Parameters[1,],gompT16B2$Parameters[1,],gompT20B1$Parameters[1,],gompT20B2$Parameters[1,],gompT24B1$Parameters[1,],gompT24B2$Parameters[1,],gompT28B1$Parameters[1,],gompT28B2$Parameters[1,],gompT28B3$Parameters[1,],gompT32B1$Parameters[1,],gompT32B2$Parameters[1,],gompT36B1$Parameters[1,],gompT36B2$Parameters[1,]),
+  coef.b = c(gompT16B1$Parameters[2,],gompT16B2$Parameters[2,],gompT20B1$Parameters[2,],gompT20B2$Parameters[2,],gompT24B1$Parameters[2,],gompT24B2$Parameters[2,],gompT28B1$Parameters[2,],gompT28B2$Parameters[2,],gompT28B3$Parameters[2,],gompT32B1$Parameters[2,],gompT32B2$Parameters[2,],gompT36B1$Parameters[2,],gompT36B2$Parameters[2,]),
+  coef.c =c(gompT16B1$Parameters[3,],gompT16B2$Parameters[3,],gompT20B1$Parameters[3,],gompT20B2$Parameters[3,],gompT24B1$Parameters[3,],gompT24B2$Parameters[3,],gompT28B1$Parameters[3,],gompT28B2$Parameters[3,],gompT28B3$Parameters[3,],gompT32B1$Parameters[3,],gompT32B2$Parameters[3,],gompT36B1$Parameters[3,],gompT36B2$Parameters[3,]),
+  temp = c(16,16,20,20,24,24,28,28,28,32,32,36,36),
+  block = c(1,2,1,2,1,2,1,2,3,1,2,1,2))
+
+  
+write.csv(block.gompertz.model.params.df,"data/block.gompertz.model.params.df.csv",row.names = FALSE)
+
+#Integration over the Gompertz curve for each Temperature | Block combination
+life16_B1 <- integrate(gompT16B1_func1, lower = 0, upper = 100)
+life16_B2 <- integrate(gompT16B2_func1, lower = 0, upper = 100)
+life20_B1 <- integrate(gompT20B1_func1, lower = 0, upper = 100)
+life20_B2 <- integrate(gompT20B2_func1, lower = 0, upper = 100) 
+life24_B1 <- integrate(gompT24B1_func1, lower = 0, upper = 100) 
+life24_B2 <- integrate(gompT24B2_func1, lower = 0, upper = 100) 
+life28_B1 <- integrate(gompT28B1_func1, lower = 0, upper = 100) 
+life28_B2 <- integrate(gompT28B2_func1, lower = 0, upper = 100) 
+life28_B3 <- integrate(gompT28B3_func1, lower = 0, upper = 100) 
+life32_B1 <- integrate(gompT32B1_func1, lower = 0, upper = 100) 
+life32_B2 <- integrate(gompT32B2_func1, lower = 0, upper = 100)
+life36_B1 <- integrate(gompT36B1_func1, lower = 0, upper = 100) 
+life36_B2 <- integrate(gompT36B2_func1, lower = 0, upper = 100) 
+
+#Combining all values into a dataframe
+treatment <- c(16,16,20,20,24,24,28,28,28,32,32,36,36)
+lifevalues <- c(life16_B1$value,life16_B2$value,life20_B1$value, life20_B2$value, life24_B1$value,life24_B2$value, life28_B1$value,life28_B2$value,life28_B3$value, life32_B1$value,life32_B2$value, life36_B1$value, life36_B2$value)
+blockvalues <- c(1,2,1,2,1,2,1,2,3,1,2,1,2)
+life.expect <- as.data.frame(cbind(blockvalues,treatment,lifevalues))
+#Export this for use in excell
+write.csv(life.expect, "data/Ex.replicate.ave.csv")
+
+life.expect$Mu <- 1/life.expect$lifevalues
+#STATS ON LIFE EXPECT
+life.expect$treatment<- as.factor(life.expect$treatment)
+ANOVA.lifeexpect <- aov(lifevalues ~ treatment, data= life.expect)
+summary(ANOVA.lifeexpect)
+TukeyHSD(ANOVA.lifeexpect)
+
+library(multcomp)
+tuk <- glht(ANOVA.lifeexpect, linfct = mcp(treatment = "Tukey"))
+summary(tuk)          # standard display
+tuk.cld <- cld(tuk)   # letter-based display
+opar <- par(mai=c(1,1,1.5,1))
+plot(tuk.cld)
+par(opar)
+
+#Model diagnostics
+hist(residuals(ANOVA.lifeexpect),  col="darkgray") #should be normal
+plot(fitted(ANOVA.lifeexpect),   residuals(ANOVA.lifeexpect)) # should be unbiased and homoscedastic
+
+
+#Averaging all values for MEAN, and sEM - add in right dataframes
+life.summary <- summarise(group_by(life.expect, treatment), ave = mean(lifevalues), SEM = sd(lifevalues)/sqrt(length(lifevalues)), Mu.mean = mean(Mu), Mu.SEM = sd(Mu)/ sqrt(length(Mu)))
+
+#Final plot - add error bars
+life.summary$treatment <- as.factor(life.summary$treatment)
+ggplot(data= life.summary, aes( x = treatment, y= ave , fill = treatment)) + 
+  geom_bar(stat="identity", position=position_dodge()) + 
+  scale_fill_manual(values= c("#88498F","#1C77C3", "#4C4C4F","#196F0B","#FF6B35","#CC0606")) +
+  xlab ("Temperature (C)") +
+  ylab ("Life expectancy") +
+  scale_y_continuous(name="Life expectancy", limits=c(0, 50), breaks = seq(0,50,10), expand = c(0,0)) +
+  geom_errorbar(aes(ymin = ave - SEM, ymax = ave + SEM, width=0.6)) +
+  theme_classic(base_size = 14) +
+  theme(legend.position = 'none', panel.background = element_blank(), legend.key = element_rect( colour = NA, fill = NA), panel.border = element_rect(colour = "black", fill=NA, size=.5)) 
+        
+KM_estimates$treatment <- as.factor(KM_estimates$treatment)
+#For supplemental? Plot all individual gompertz curves over the KM_estimates
+ggplot(data= KM_estimates, aes(x=time, y= surv, colour = treatment, group = treatment)) + 
+        scale_colour_manual(values= c("#88498F","#1C77C3", "#4C4C4F","#196F0B","#FF6B35","#CC0606")) +
+        scale_fill_manual(values= c("#88498F","#1C77C3", "#4C4C4F","#196F0B","#FF6B35","#CC0606")) +
+        scale_x_continuous(name="Days at treatment", limits = c (0, 60), breaks = seq(0,60,5), expand = c(0.02,0.02)) +
+        scale_y_continuous(name="Cumulative probability of survival", limits=c(0, 1), breaks = seq(0,1,0.1), expand = c(0.02,0.02)) +
+        geom_ribbon(aes(ymax = upper, ymin = lower, fill = treatment), alpha = 0.3, color = NA)+
+        #geom_point(size = 1.7) +
+        geom_line(size =1.1) +
+        theme_classic( base_size = 14) +
+        theme(legend.position = 'right', panel.background = element_blank(), legend.key = element_rect( colour = NA, fill = NA), panel.border = element_rect(colour = "black", fill=NA, size=.5)) +
+        guides(shape = "none", fill = FALSE) +
+      stat_function(fun = gompT16B1_func1, colour = "#88498F", linetype = "dashed", size = 1.2) +
+      stat_function(fun = gompT16B2_func1, colour = "#88498F", linetype = "dotted", size = 1.2) +
+      stat_function(fun = gompT20B1_func1, colour = "#1C77C3", linetype = "dashed", size = 1.2) +
+      stat_function(fun = gompT20B2_func1, colour = "#1C77C3", linetype = "dotted", size = 1.2) +
+      stat_function(fun = gompT24B1_func1, colour = "#4C4C4F", linetype = "dashed", size = 1.2) +
+      stat_function(fun = gompT24B2_func1, colour = "#4C4C4F", linetype = "dotted", size = 1.2) +
+      stat_function(fun = gompT28B1_func1, colour = "#196F0B", linetype = "dashed", size = 1.2) +
+      stat_function(fun = gompT28B2_func1, colour = "#196F0B", linetype = "dotted", size = 1.2) +
+      stat_function(fun = gompT28B3_func1, colour = "#196F0B", linetype = "longdash", size = 1.2) +
+      stat_function(fun = gompT32B1_func1, colour = "#FF6B35", linetype = "dashed", size = 1.2) +
+      stat_function(fun = gompT32B2_func1, colour = "#FF6B35", linetype = "dotted", size = 1.2) +
+      stat_function(fun = gompT36B1_func1, colour = "#CC0606", linetype = "dashed", size = 1.2) +
+      stat_function(fun = gompT36B2_func1, colour = "#CC0606", linetype = "dotted", size = 1.2) +
+      coord_fixed(ratio = 30) 
+
+
+#create master dataframe to place all the block specific survial KM-estimates into (do this after generating the gompertz function fits else gompertz fits wont work properly)
+temp16_B1_KM_values <- as.data.frame(cbind(temp16_B1_KM_values, Temp = 16))
+temp20_B1_KM_values <- as.data.frame(cbind(temp20_B1_KM_values, Temp = 20))
+temp24_B1_KM_values <- as.data.frame(cbind(temp24_B1_KM_values, Temp = 24))
+temp28_B1_KM_values <- as.data.frame(cbind(temp28_B1_KM_values, Temp = 28))
+temp32_B1_KM_values <- as.data.frame(cbind(temp32_B1_KM_values, Temp = 32))
+temp36_B1_KM_values <- as.data.frame(cbind(temp36_B1_KM_values, Temp = 36))
+
+rep.1.KM.mort<- as.data.frame(rbind(temp16_B1_KM_values, temp20_B1_KM_values, temp24_B1_KM_values, temp28_B1_KM_values, temp32_B1_KM_values, temp36_B1_KM_values))
+names(rep.1.KM.mort) <- cbind("Day", "Surv", "Temp")
+
+temp16_B2_KM_values <- as.data.frame(cbind(temp16_B2_KM_values, Temp = 16))
+temp20_B2_KM_values <- as.data.frame(cbind(temp20_B2_KM_values, Temp = 20))
+temp24_B2_KM_values <- as.data.frame(cbind(temp24_B2_KM_values, Temp = 24))
+temp28_B2_KM_values <- as.data.frame(cbind(temp28_B2_KM_values, Temp = 28))
+temp32_B2_KM_values <- as.data.frame(cbind(temp32_B2_KM_values, Temp = 32))
+temp36_B2_KM_values <- as.data.frame(cbind(temp36_B2_KM_values, Temp = 36))
+
+rep.2.KM.mort<- as.data.frame(rbind(temp16_B2_KM_values, temp20_B2_KM_values, temp24_B2_KM_values, temp28_B2_KM_values, temp32_B2_KM_values, temp36_B2_KM_values))
+names(rep.1.KM.mort) <- cbind("Day", "Surv", "Temp")
+
+rep.3.KM.mort <- as.data.frame(cbind ( temp28_B3_KM_values, 28))
+names(rep.3.KM.mort) <- cbind("Day", "Surv", "Temp")
+
+#export
+#write.csv(rep.1.KM.mort, "data/rep.1.KM.mort.csv")
+#write.csv(rep.2.KM.mort, "data/rep.2.KM.mort.csv")
+#write.csv(rep.3.KM.mort, "data/rep.3.KM.mort.csv")
+
+```
+
+##Side step: Generate Mu according to an exponetial fit of the data (each replicate) as described in Mordecai and Shapiro
+2. Using the Gompertz curve fit over the Kaplan-meir estimates (Shapiro)
+
+```{r}
+#METHOD 2: Expontial fit over the gompertz curve fit
+#Generate a dataframe containing the values for the gompertz curve values each day through 100 days
+Gompvalues_16_B1 <- as.data.frame(cbind(Surv = gompT16B1_func1(0:100), Temp = 16, Day = (0:100), Block = 1))
+
+position <- which.min(abs(Gompvalues_16_B1$Surv - 0.01)) #Nearest value to 0.01
+#Check row position to Day conversion Day ; example row position 78 = Day 77
+
+#Make a dataframe of values for the expoential fit , with day values
+Exp_fit_values <- as.vector(c(1, Gompvalues_16_B1$Surv[position -1], Gompvalues_16_B1$Surv[position], Gompvalues_16_B1$Surv[position+1],Gompvalues_16_B1$Surv[position+2], Gompvalues_16_B1$Surv[position+3]))
+Day_fit_values = as.vector(c(0, position-2 , position -1, position, position + 1, position +2))
+Exp_df_16_B1 <- as.data.frame(cbind( Day = Day_fit_values, Surv = Exp_fit_values))
+
+#place in dataframe to be compatiable with nls fit for exponential 
+#Format for fits = time, survival
+Exp_fit_16_B1 <- nlsfit(Exp_df_16_B1, model = 6, start = c(1.01,-0.1))
+Exp_fit_16_B1 # a = 1.000; b = -0.0537
+Exp_func_16B1 <- function(x){Exp_fit_16_B1$Parameters[1,]*exp((Exp_fit_16_B1$Parameters[2,]*x))}
+ 
+ggplot(data= Exp_df_16_B1, aes(x=Day, y= Surv)) + 
+        geom_point(size = 3)+
+        theme_classic( base_size = 14) +
+        stat_function(fun = Exp_func_16B1, colour = "#88498F", linetype = "dashed", size = 1.2) 
+
+#16C Block 2
+Gompvalues_16_B2 <- as.data.frame(cbind(Surv = gompT16B2_func1(0:100), Temp = 16, Day = (0:100), Block = 2))
+position <- which.min(abs(Gompvalues_16_B2$Surv - 0.01)) #Nearest value to 0.01
+Exp_fit_values <- as.vector(c(1, Gompvalues_16_B2$Surv[position -1], Gompvalues_16_B2$Surv[position], Gompvalues_16_B2$Surv[position+1],Gompvalues_16_B2$Surv[position+2], Gompvalues_16_B2$Surv[position+3]))
+Day_fit_values = as.vector(c(0, position-2 , position -1, position, position + 1, position +2))
+Exp_df_16_B2 <- as.data.frame(cbind( Day = Day_fit_values, Surv = Exp_fit_values))
+Exp_fit_16_B2 <- nlsfit(Exp_df_16_B2, model = 6, start = c(1.01,-0.1))
+Exp_fit_16_B2 # a =1.00; b = -0.0716
+Exp_func_16B2 <- function(x){Exp_fit_16_B2$Parameters[1,]*exp((Exp_fit_16_B2$Parameters[2,]*x))}
+ 
+ggplot(data= Exp_df_16_B2, aes(x=Day, y= Surv)) + 
+        geom_point(size = 3)+
+        theme_classic( base_size = 14) +
+        stat_function(fun = Exp_func_16B2, colour = "#88498F", linetype = "dashed", size = 1.2) 
+
+#20C Block 1
+Gompvalues_20_B1 <- as.data.frame(cbind(Surv = gompT20B1_func1(0:100), Temp = 20, Day = (0:100), Block = 1))
+position <- which.min(abs(Gompvalues_20_B1$Surv - 0.01)) #Nearest value to 0.01
+Exp_fit_values <- as.vector(c(1, Gompvalues_20_B1$Surv[position -1], Gompvalues_20_B1$Surv[position], Gompvalues_20_B1$Surv[position+1],Gompvalues_20_B1$Surv[position+2], Gompvalues_20_B1$Surv[position+3]))
+Day_fit_values = as.vector(c(0, position-2 , position -1, position, position + 1, position +2))
+Exp_df_20_B1 <- as.data.frame(cbind( Day = Day_fit_values, Surv = Exp_fit_values))
+Exp_fit_20_B1 <- nlsfit(Exp_df_20_B1, model = 6, start = c(1.01,-0.1))
+Exp_fit_20_B1 # a =1.00; b = -0.0657
+Exp_func_20B1 <- function(x){Exp_fit_20_B1$Parameters[1,]*exp((Exp_fit_20_B1$Parameters[2,]*x))}
+ 
+ggplot(data= Exp_df_20_B1, aes(x=Day, y= Surv)) + 
+        geom_point(size = 3)+
+        theme_classic( base_size = 14) +
+        stat_function(fun = Exp_func_20B1, colour = "#88498F", linetype = "dashed", size = 1.2) 
+
+#20C Block 2
+Gompvalues_20_B2 <- as.data.frame(cbind(Surv = gompT20B2_func1(0:100), Temp = 20, Day = (0:100), Block = 2))
+position <- which.min(abs(Gompvalues_20_B2$Surv - 0.01)) #Nearest value to 0.01
+Exp_fit_values <- as.vector(c(1, Gompvalues_20_B2$Surv[position -1], Gompvalues_20_B2$Surv[position], Gompvalues_20_B2$Surv[position+1],Gompvalues_20_B2$Surv[position+2], Gompvalues_20_B2$Surv[position+3]))
+Day_fit_values = as.vector(c(0, position-2 , position -1, position, position + 1, position +2))
+Exp_df_20_B2 <- as.data.frame(cbind( Day = Day_fit_values, Surv = Exp_fit_values))
+Exp_fit_20_B2 <- nlsfit(Exp_df_20_B2, model = 6, start = c(1.01,-0.1))
+Exp_fit_20_B2 # a =1.00; b = -0.0641
+Exp_func_20B2 <- function(x){Exp_fit_20_B2$Parameters[1,]*exp((Exp_fit_20_B2$Parameters[2,]*x))}
+ 
+ggplot(data= Exp_df_20_B2, aes(x=Day, y= Surv)) + 
+        geom_point(size = 3)+
+        theme_classic( base_size = 14) +
+        stat_function(fun = Exp_func_20B2, colour = "#88498F", linetype = "dashed", size = 1.2) 
+
+#24C Block 1
+Gompvalues_24_B1 <- as.data.frame(cbind(Surv = gompT24B1_func1(0:100), Temp = 24, Day = (0:100), Block = 1))
+position <- which.min(abs(Gompvalues_24_B1$Surv - 0.01)) #Nearest value to 0.01
+Exp_fit_values <- as.vector(c(1, Gompvalues_24_B1$Surv[position -1], Gompvalues_24_B1$Surv[position], Gompvalues_24_B1$Surv[position+1],Gompvalues_24_B1$Surv[position+2], Gompvalues_24_B1$Surv[position+3]))
+Day_fit_values = as.vector(c(0, position-2 , position -1, position, position + 1, position +2))
+Exp_df_24_B1 <- as.data.frame(cbind( Day = Day_fit_values, Surv = Exp_fit_values))
+Exp_fit_24_B1 <- nlsfit(Exp_df_24_B1, model = 6, start = c(1.01,-0.1))
+Exp_fit_24_B1 # a =1.00; b = -0.0633
+Exp_func_24B1 <- function(x){Exp_fit_24_B1$Parameters[1,]*exp((Exp_fit_24_B1$Parameters[2,]*x))}
+ 
+ggplot(data= Exp_df_24_B1, aes(x=Day, y= Surv)) + 
+        geom_point(size = 3)+
+        theme_classic( base_size = 14) +
+        stat_function(fun = Exp_func_24B1, colour = "#88498F", linetype = "dashed", size = 1.2) 
+
+#24C Block 2
+Gompvalues_24_B2 <- as.data.frame(cbind(Surv = gompT24B2_func1(0:100), Temp = 24, Day = (0:100), Block = 2))
+position <- which.min(abs(Gompvalues_24_B2$Surv - 0.01)) #Nearest value to 0.01
+Exp_fit_values <- as.vector(c(1, Gompvalues_24_B2$Surv[position -1], Gompvalues_24_B2$Surv[position], Gompvalues_24_B2$Surv[position+1],Gompvalues_24_B2$Surv[position+2], Gompvalues_24_B2$Surv[position+3]))
+Day_fit_values = as.vector(c(0, position-2 , position -1, position, position + 1, position +2))
+Exp_df_24_B2 <- as.data.frame(cbind( Day = Day_fit_values, Surv = Exp_fit_values))
+Exp_fit_24_B2 <- nlsfit(Exp_df_24_B2, model = 6, start = c(1.01,-0.1))
+Exp_fit_24_B2 # a =1.00; b = -0.0658
+Exp_func_24B2 <- function(x){Exp_fit_24_B2$Parameters[1,]*exp((Exp_fit_24_B2$Parameters[2,]*x))}
+ 
+ggplot(data= Exp_df_24_B2, aes(x=Day, y= Surv)) + 
+        geom_point(size = 3)+
+        theme_classic( base_size = 14) +
+        stat_function(fun = Exp_func_24B2, colour = "#88498F", linetype = "dashed", size = 1.2) 
+
+#28C Block 1
+Gompvalues_28_B1 <- as.data.frame(cbind(Surv = gompT28B1_func1(0:100), Temp = 28, Day = (0:100), Block = 1))
+position <- which.min(abs(Gompvalues_28_B1$Surv - 0.01)) #Nearest value to 0.01
+Exp_fit_values <- as.vector(c(1, Gompvalues_28_B1$Surv[position -1], Gompvalues_28_B1$Surv[position], Gompvalues_28_B1$Surv[position+1],Gompvalues_28_B1$Surv[position+2], Gompvalues_28_B1$Surv[position+3]))
+Day_fit_values = as.vector(c(0, position-2 , position -1, position, position + 1, position +2))
+Exp_df_28_B1 <- as.data.frame(cbind( Day = Day_fit_values, Surv = Exp_fit_values))
+Exp_fit_28_B1 <- nlsfit(Exp_df_28_B1, model = 6, start = c(1.01,-0.1))
+Exp_fit_28_B1 # a =1.00; b = -0.0820
+Exp_func_28B1 <- function(x){Exp_fit_28_B1$Parameters[1,]*exp((Exp_fit_28_B1$Parameters[2,]*x))}
+ 
+ggplot(data= Exp_df_28_B1, aes(x=Day, y= Surv)) + 
+        geom_point(size = 3)+
+        theme_classic( base_size = 14) +
+        stat_function(fun = Exp_func_28B1, colour = "#88498F", linetype = "dashed", size = 1.2) 
+
+#28C Block 2
+Gompvalues_28_B2 <- as.data.frame(cbind(Surv = gompT28B2_func1(0:100), Temp = 28, Day = (0:100), Block = 2))
+position <- which.min(abs(Gompvalues_28_B2$Surv - 0.01)) #Nearest value to 0.01
+Exp_fit_values <- as.vector(c(1, Gompvalues_28_B2$Surv[position -1], Gompvalues_28_B2$Surv[position], Gompvalues_28_B2$Surv[position+1],Gompvalues_28_B2$Surv[position+2], Gompvalues_28_B2$Surv[position+3]))
+Day_fit_values = as.vector(c(0, position-2 , position -1, position, position + 1, position +2))
+Exp_df_28_B2 <- as.data.frame(cbind( Day = Day_fit_values, Surv = Exp_fit_values))
+Exp_fit_28_B2 <- nlsfit(Exp_df_28_B2, model = 6, start = c(1.01,-0.1))
+Exp_fit_28_B2 # a =1.00; b = -0.0762
+Exp_func_28B2 <- function(x){Exp_fit_28_B2$Parameters[1,]*exp((Exp_fit_28_B2$Parameters[2,]*x))}
+ 
+ggplot(data= Exp_df_28_B2, aes(x=Day, y= Surv)) + 
+        geom_point(size = 3)+
+        theme_classic( base_size = 14) +
+        stat_function(fun = Exp_func_28B2, colour = "#88498F", linetype = "dashed", size = 1.2) 
+
+#28C Block 3
+Gompvalues_28_B3 <- as.data.frame(cbind(Surv = gompT28B3_func1(0:100), Temp = 28, Day = (0:100), Block = 3))
+position <- which.min(abs(Gompvalues_28_B3$Surv - 0.01)) #Nearest value to 0.01
+Exp_fit_values <- as.vector(c(1, Gompvalues_28_B3$Surv[position -1], Gompvalues_28_B3$Surv[position], Gompvalues_28_B3$Surv[position+1],Gompvalues_28_B3$Surv[position+2], Gompvalues_28_B3$Surv[position+3]))
+Day_fit_values = as.vector(c(0, position-2 , position -1, position, position + 1, position +2))
+Exp_df_28_B3 <- as.data.frame(cbind( Day = Day_fit_values, Surv = Exp_fit_values))
+Exp_fit_28_B3 <- nlsfit(Exp_df_28_B3, model = 6, start = c(1.01,-0.1))
+Exp_fit_28_B3 # a =1.00; b = -0.0907
+Exp_func_28B3 <- function(x){Exp_fit_28_B3$Parameters[1,]*exp((Exp_fit_28_B3$Parameters[2,]*x))}
+ 
+ggplot(data= Exp_df_28_B3, aes(x=Day, y= Surv)) + 
+        geom_point(size = 3)+
+        theme_classic( base_size = 14) +
+        stat_function(fun = Exp_func_28B3, colour = "#88498F", linetype = "dashed", size = 1.2) 
+
+#32C Block 1
+Gompvalues_32_B1 <- as.data.frame(cbind(Surv = gompT32B1_func1(0:100), Temp = 32, Day = (0:100), Block = 1))
+position <- which.min(abs(Gompvalues_32_B1$Surv - 0.01)) #Nearest value to 0.01
+Exp_fit_values <- as.vector(c(1, Gompvalues_32_B1$Surv[position -1], Gompvalues_32_B1$Surv[position], Gompvalues_32_B1$Surv[position+1],Gompvalues_32_B1$Surv[position+2], Gompvalues_32_B1$Surv[position+3]))
+Day_fit_values = as.vector(c(0, position-2 , position -1, position, position + 1, position +2))
+Exp_df_32_B1 <- as.data.frame(cbind( Day = Day_fit_values, Surv = Exp_fit_values))
+Exp_fit_32_B1 <- nlsfit(Exp_df_32_B1, model = 6, start = c(1.01,-0.1))
+Exp_fit_32_B1 # a =1.00; b = -0.1481
+Exp_func_32B1 <- function(x){Exp_fit_32_B1$Parameters[1,]*exp((Exp_fit_32_B1$Parameters[2,]*x))}
+ 
+ggplot(data= Exp_df_32_B1, aes(x=Day, y= Surv)) + 
+        geom_point(size = 3)+
+        theme_classic( base_size = 14) +
+        stat_function(fun = Exp_func_32B1, colour = "#88498F", linetype = "dashed", size = 1.2) 
+
+#32C Block 2
+Gompvalues_32_B2 <- as.data.frame(cbind(Surv = gompT32B2_func1(0:100), Temp = 32, Day = (0:100), Block = 2))
+position <- which.min(abs(Gompvalues_32_B2$Surv - 0.01)) #Nearest value to 0.01
+Exp_fit_values <- as.vector(c(1, Gompvalues_32_B2$Surv[position -1], Gompvalues_32_B2$Surv[position], Gompvalues_32_B2$Surv[position+1],Gompvalues_32_B2$Surv[position+2], Gompvalues_32_B2$Surv[position+3]))
+Day_fit_values = as.vector(c(0, position-2 , position -1, position, position + 1, position +2))
+Exp_df_32_B2 <- as.data.frame(cbind( Day = Day_fit_values, Surv = Exp_fit_values))
+Exp_fit_32_B2 <- nlsfit(Exp_df_32_B2, model = 6, start = c(1.01,-0.1))
+Exp_fit_32_B2 # a =1.00; b = -0.1283
+Exp_func_32B2 <- function(x){Exp_fit_32_B2$Parameters[1,]*exp((Exp_fit_32_B2$Parameters[2,]*x))}
+ 
+ggplot(data= Exp_df_32_B2, aes(x=Day, y= Surv)) + 
+        geom_point(size = 3)+
+        theme_classic( base_size = 14) +
+        stat_function(fun = Exp_func_32B2, colour = "#88498F", linetype = "dashed", size = 1.2) 
+
+#36C Block 1
+Gompvalues_36_B1 <- as.data.frame(cbind(Surv = gompT36B1_func1(0:100), Temp = 36, Day = (0:100), Block = 1))
+position <- which.min(abs(Gompvalues_36_B1$Surv - 0.01)) #Nearest value to 0.01
+Exp_fit_values <- as.vector(c(1, Gompvalues_36_B1$Surv[position -1], Gompvalues_36_B1$Surv[position], Gompvalues_36_B1$Surv[position+1],Gompvalues_36_B1$Surv[position+2], Gompvalues_36_B1$Surv[position+3]))
+Day_fit_values = as.vector(c(0, position-2 , position -1, position, position + 1, position +2))
+Exp_df_36_B1 <- as.data.frame(cbind( Day = Day_fit_values, Surv = Exp_fit_values))
+Exp_fit_36_B1 <- nlsfit(Exp_df_36_B1, model = 6, start = c(1.01,-0.1))
+Exp_fit_36_B1 # a =1.00; b = -0.2383
+Exp_func_36B1 <- function(x){Exp_fit_36_B1$Parameters[1,]*exp((Exp_fit_36_B1$Parameters[2,]*x))}
+ 
+ggplot(data= Exp_df_36_B1, aes(x=Day, y= Surv)) + 
+        geom_point(size = 3)+
+        theme_classic( base_size = 14) +
+        stat_function(fun = Exp_func_36B1, colour = "#88498F", linetype = "dashed", size = 1.2) 
+
+#36C Block 2
+Gompvalues_36_B2 <- as.data.frame(cbind(Surv = gompT36B2_func1(0:100), Temp = 36, Day = (0:100), Block = 2))
+position <- which.min(abs(Gompvalues_36_B2$Surv - 0.01)) #Nearest value to 0.01
+Exp_fit_values <- as.vector(c(1, Gompvalues_36_B2$Surv[position -1], Gompvalues_36_B2$Surv[position], Gompvalues_36_B2$Surv[position+1],Gompvalues_36_B2$Surv[position+2], Gompvalues_36_B2$Surv[position+3]))
+Day_fit_values = as.vector(c(0, position-2 , position -1, position, position + 1, position +2))
+Exp_df_36_B2 <- as.data.frame(cbind( Day = Day_fit_values, Surv = Exp_fit_values))
+Exp_fit_36_B2 <- nlsfit(Exp_df_36_B2, model = 6, start = c(2.01,-0.2))
+Exp_fit_36_B2 # a =1.00; b = -0.2914
+Exp_func_36B2 <- function(x) {Exp_fit_36_B2$Parameters[1,]*exp((Exp_fit_36_B2$Parameters[2,]*x))}
+  
+ggplot(data= Exp_df_36_B2, aes(x=Day, y= Surv)) + 
+        geom_point(size = 3)+
+        theme_classic( base_size = 14) +
+        stat_function(fun = Exp_func_36B2, colour = "#88498F", linetype = "dashed", size = 1.2) 
+      
+
+
+#Create a table of a summary of Mu(exponential) for each BLOCK|TEMP
+Mu.exp.block <- data.frame(Temp = c(16,20,24,28,32,36,16,20,24,28,32,36,28),
+                                Value = c(-Exp_fit_16_B1$Parameters$Surv[2],-Exp_fit_20_B1$Parameters$Surv[2],-Exp_fit_24_B1$Parameters$Surv[2],-Exp_fit_28_B1$Parameters$Surv[2], -Exp_fit_32_B1$Parameters$Surv[2],-Exp_fit_36_B1$Parameters$Surv[2],-Exp_fit_16_B2$Parameters$Surv[2],-Exp_fit_20_B2$Parameters$Surv[2],-Exp_fit_24_B2$Parameters$Surv[2],-Exp_fit_28_B2$Parameters$Surv[2],-Exp_fit_32_B2$Parameters$Surv[2], -Exp_fit_36_B2$Parameters$Surv[2], -Exp_fit_28_B3$Parameters$Surv[2]),   Block = c(1,2,1,2,1,2,1,2,1,2,1,2,3))
+                                                                    
+Mu.summary.exp <- summarise(group_by(Mu.exp.block, Temp), Mean = mean(Value), SEM = sd(Value)/sqrt(2), SD = sd(Value))                                                                
+
+write.csv(Mu.exp.block, "data/mu.exp.block.values.csv", row.names = FALSE)
+#for quick reference- should be the same as 'ForErin.Exponential.Mu' ,but there are slight differences. Eventually replace TPC to be generated with this dataset.
+```
+
+
+GENERATION OF GAMMA VALUES FROM SHAPIRO EIP50 DATA & Miazgowicz gompertz survival
+Technical notes: Replicate-specific values were used from Shapiro et al. 2017 to generate a thermal performance curve with Bayesian inferenence and using uniform priors (see Trait_Fitting_Uniform & Trait_Plotting_Uniform  R code files for code on that). Model outputs (i.e. TPC) were used to infer the EIP50 values at the temperatures used in the current manuscript (@16C, 20C, 24C, 28C, 32C, 36C) -> datafile: "EIP.uni.curve.output.csv". The gompertz function fit to each seperate replicate was used to generate gamma (y) values; ie. the porportion of mosquitoes surviving past the latency period in the Lifetime R0 model; ie. This term, gamma, replaces e^(-mu *EIP) in the standard R0 equation.
+
+```{r}
+#Load in dataframe with EIP|temp values
+EIP50.tpc.values <- read.csv("data/EIP.uni.curve.output.csv")
+
+#Evaluate the corresponding function for gamma at EIPx
+gamma_T16_B1 <- gompT16B1_func1(EIP50.tpc.values$EIP[1])
+gamma_T16_B2 <- gompT16B2_func1(EIP50.tpc.values$EIP[1])
+gamma_T20_B1 <- gompT20B1_func1(EIP50.tpc.values$EIP[2])
+gamma_T20_B2 <- gompT20B2_func1(EIP50.tpc.values$EIP[2])
+gamma_T24_B1 <- gompT24B1_func1(EIP50.tpc.values$EIP[3])
+gamma_T24_B2 <- gompT24B2_func1(EIP50.tpc.values$EIP[3])
+gamma_T28_B1 <- gompT28B1_func1(EIP50.tpc.values$EIP[4])
+gamma_T28_B2 <- gompT28B2_func1(EIP50.tpc.values$EIP[4])
+gamma_T28_B3 <- gompT28B3_func1(EIP50.tpc.values$EIP[4])
+gamma_T32_B1 <- gompT32B1_func1(EIP50.tpc.values$EIP[5])
+gamma_T32_B2 <- gompT32B2_func1(EIP50.tpc.values$EIP[5])
+gamma_T36_B1 <- gompT36B1_func1(EIP50.tpc.values$EIP[6])
+gamma_T36_B2 <- gompT36B2_func1(EIP50.tpc.values$EIP[6])
+
+#Place values in a df with temp values
+gamma.values <- c(gamma_T16_B1,gamma_T16_B2,gamma_T20_B1, gamma_T20_B2, gamma_T24_B1, gamma_T24_B2, gamma_T28_B1, gamma_T28_B2, gamma_T28_B3, gamma_T32_B1, gamma_T32_B2, gamma_T36_B1, gamma_T36_B2)
+temp.values <- c(16,16,20,20,24,24,28,28,28,32,32,36,36)
+
+gamma.df <- data.frame(gamma = gamma.values, temp = temp.values)
+
+#Visualize
+plot(gamma.df$temp, gamma.df$gamma)
+
+#Write out the csv of gamma values
+write.csv(gamma.df, "data/Miaz_gamma.values.csv", row.names = FALSE)
+
+#Refer to Trait_fitting_uniform.R for the TPC fits of gamma
+```
+
+GENERATION OF GAMMA VALUES FROM SHAPIRO EIP50 DATA & Miazgowicz exponential survival
+Technical notes: Replicate-specific values were used from Shapiro et al. 2017 to generate a thermal performance curve with Bayesian inferenence and using uniform priors (see Trait_Fitting_Uniform & Trait_Plotting_Uniform  R code files for code on that). Model outputs (i.e. TPC) were used to infer the EIP50 values at the temperatures used in the current manuscript (@16C, 20C, 24C, 28C, 32C, 36C) -> datafile: "EIP.uni.curve.output.csv". The EXPONENTIAL function fit to each seperate replicate was used to generate gamma (y) values; ie. the porportion of mosquitoes surviving past the latency period in the estimated R0 model; ie. This term, gamma(est), replaces e^(-mu *EIP) in the standard R0 equation.
+
+```{r}
+#Load in dataframe with EIP|temp values
+EIP50.tpc.values <- read.csv("data/EIP.uni.curve.output.csv")
+
+#Evaluate the corresponding function for gamma at EIPx
+S.exp.gamma_T16_B1 <- Exp_func_16B1(EIP50.tpc.values$EIP[1])
+S.exp.gamma_T16_B2 <- Exp_func_16B2(EIP50.tpc.values$EIP[1])
+S.exp.gamma_T20_B1 <- Exp_func_20B1(EIP50.tpc.values$EIP[2])
+S.exp.gamma_T20_B2 <- Exp_func_20B2(EIP50.tpc.values$EIP[2])
+S.exp.gamma_T24_B1 <- Exp_func_24B1(EIP50.tpc.values$EIP[3])
+S.exp.gamma_T24_B2 <- Exp_func_24B2(EIP50.tpc.values$EIP[3])
+S.exp.gamma_T28_B1 <- Exp_func_28B1(EIP50.tpc.values$EIP[4])
+S.exp.gamma_T28_B2 <- Exp_func_28B2(EIP50.tpc.values$EIP[4])
+S.exp.gamma_T28_B3 <- Exp_func_28B3(EIP50.tpc.values$EIP[4])
+S.exp.gamma_T32_B1 <- Exp_func_32B1(EIP50.tpc.values$EIP[5])
+S.exp.gamma_T32_B2 <- Exp_func_32B2(EIP50.tpc.values$EIP[5])
+S.exp.gamma_T36_B1 <- Exp_func_36B1(EIP50.tpc.values$EIP[6])
+S.exp.gamma_T36_B2 <- Exp_func_36B2(EIP50.tpc.values$EIP[6])
+
+#Place values in a df with temp values
+Sgamma.values <- c(S.exp.gamma_T16_B1,S.exp.gamma_T16_B2,S.exp.gamma_T20_B1,S.exp.gamma_T20_B2, S.exp.gamma_T24_B1, S.exp.gamma_T24_B2, S.exp.gamma_T28_B1, S.exp.gamma_T28_B2, S.exp.gamma_T28_B3, S.exp.gamma_T32_B1, S.exp.gamma_T32_B2, S.exp.gamma_T36_B1, S.exp.gamma_T36_B2)
+temp.values <- c(16,16,20,20,24,24,28,28,28,32,32,36,36)
+
+Sgamma.df <- data.frame(gamma = Sgamma.values, temp = temp.values)
+
+#Visualize
+plot(Sgamma.df$temp, Sgamma.df$gamma)
+
+#Write out the csv of gamma values
+write.csv(Sgamma.df, "data/Miaz_S.exp.gamma.values.csv", row.names = FALSE)
+
+#Refer to Trait_fitting_uniform.R for the TPC fits of S.exp.gamma
+
+
+```
+
+
