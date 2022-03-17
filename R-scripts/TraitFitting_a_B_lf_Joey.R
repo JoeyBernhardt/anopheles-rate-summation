@@ -11,7 +11,7 @@
 ##           5) Example code for fitting a trait - informative priors fit from data
 ##           6) Example code for fitting prior distribution
 
-
+##
 
 ##########
 ###### 1. Set up workspace, load packages, get data, etc.

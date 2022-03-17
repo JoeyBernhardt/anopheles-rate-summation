@@ -333,6 +333,9 @@ jag.data <- list(trait = trait, N.obs = N.obs, temp = temp, Temp.xs = Temp.xs, N
 model_out_eggs_constant_quad <- jags(data=jag.data, inits=inits, parameters.to.save=parameters, model.file="quad.txt",
 								n.thin=nt, n.chains=nc, n.burnin=nb, n.iter=ni, DIC=T, working.directory=getwd())
 
+
+str(model_out_eggs_constant_quad) 
+str(model_out_eggs_constant) 
 # Examine model output & run diagnostics
 model_out_eggs_constant$BUGSoutput$summary[1:10,]
 mcmcplot(model_out_eggs_constant)
