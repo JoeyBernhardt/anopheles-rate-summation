@@ -1,5 +1,4 @@
 
-<<<<<<< HEAD
     model{
     
     ## Priors
@@ -22,21 +21,3 @@
     
     } # close model
     
-=======
-	model{
-	
-	## Priors
-	cf.q ~ dunif(0, 1)
-	cf.T0 ~ dunif(0, 24)
-	cf.Tm ~ dunif(25, 50)
-	cf.sigma ~ dunif(0, 1000)
-	cf.tau <- 1 / (cf.sigma * cf.sigma)
-	
-	## Likelihood
-	for(i in 1:N.obs){
-	trait.mu[i] <- -1 * cf.q * (temp[i] - cf.T0) * (temp[i] - cf.Tm) * (cf.Tm > temp[i]) * (cf.T0 < temp[i])
-	trait[i] ~ dnorm(trait.mu[i], cf.tau)
-	}
-	
-	} # close model 
->>>>>>> 0371e76b8e7fe0dfd5aa919e65812d38168889a7

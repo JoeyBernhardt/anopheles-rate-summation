@@ -14,13 +14,10 @@
     trait[i] ~ dnorm(trait.mu[i], cf.tau)
     }
     
-<<<<<<< HEAD
     ## Derived Quantities and Predictions
     for(i in 1:N.Temp.xs){
     z.trait.mu.pred[i] <- cf.q * Temp.xs[i] * (Temp.xs[i] - cf.T0) * sqrt((cf.Tm - Temp.xs[i]) * (cf.Tm > Temp.xs[i])) * (cf.T0 < Temp.xs[i])
     }
     
-=======
->>>>>>> 0371e76b8e7fe0dfd5aa919e65812d38168889a7
     } # close model
     

@@ -17,14 +17,14 @@
 ###### 1. Set up workspace, load packages, get data, etc.
 ##########
 
-mainDir = "C:/Users/Kerri/Desktop/Fluctuation_BayesianFits"
-setwd(mainDir)
-
-# Check whether there's a folder in the directory for saving plots
-# If not, create one
-subDir = "saved posteriors"
-ifelse(!dir.exists(file.path(mainDir, subDir)), dir.create(file.path(mainDir, subDir)), FALSE)
-
+# mainDir = "C:/Users/Kerri/Desktop/Fluctuation_BayesianFits"
+# setwd(mainDir)
+# 
+# # Check whether there's a folder in the directory for saving plots
+# # If not, create one
+# subDir = "saved posteriors"
+# ifelse(!dir.exists(file.path(mainDir, subDir)), dir.create(file.path(mainDir, subDir)), FALSE)
+# 
 # Load libraties for fitting traits
 library('R2jags') # Fits Bayesian models
 library('mcmcplots') # Diagnostic plots for fits
@@ -46,9 +46,9 @@ names(data.fluc9)[names(data.fluc9) == 'Treatment'] <- 'temp'
 data.fluc12 <- read.csv("data-raw/fluc12.individual.trait.csv")
 names(data.fluc12)[names(data.fluc12) == 'Treatment'] <- 'temp'
 
-# data.bc.EIP <- read.csv("data/forErin_ShapiroData.csv")
-# data.bc.EIP$inverse.EIP50 = 1/data.bc.EIP$EIP50
-# data.pea.MDR <- read.csv("data/Krijn_Raw_Data.csv")
+data.bc.EIP <- read.csv("data-raw/forErin_ShapiroData.csv")
+data.bc.EIP$inverse.EIP50 = 1/data.bc.EIP$EIP50
+data.pea.MDR <- read.csv("data-raw/Krijn_Raw_Data.csv")
 
 #Note: We kept the data at 36C at constant temp for the TPC fits 
 

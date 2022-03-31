@@ -17,14 +17,14 @@
 ###### 1. Set up workspace, load packages, get data, etc.
 ##########
 
-mainDir = "C:/Users/Kerri/Desktop/Fluctuation_BayesianFits"
-setwd(mainDir)
-
-# Check whether there's a folder in the directory for saving plots
-# If not, create one
-subDir = "saved posteriors"
-ifelse(!dir.exists(file.path(mainDir, subDir)), dir.create(file.path(mainDir, subDir)), FALSE)
-
+# mainDir = "C:/Users/Kerri/Desktop/Fluctuation_BayesianFits"
+# setwd(mainDir)
+# 
+# # Check whether there's a folder in the directory for saving plots
+# # If not, create one
+# subDir = "saved posteriors"
+# ifelse(!dir.exists(file.path(mainDir, subDir)), dir.create(file.path(mainDir, subDir)), FALSE)
+# 
 # Load libraties for fitting traits
 library('R2jags') # Fits Bayesian models
 library('mcmcplots') # Diagnostic plots for fits
@@ -1495,13 +1495,171 @@ data_eip50
 model_out_eip50
 
 
+predictions_eip50 <- as.data.frame(model_out_eip50$BUGSoutput$sims.list$z.trait.mu.pred, col_names = Temp.xs)   ### columns are temperatures, rows are iterations
+colnames(predictions_eip50) <- Temp.xs
+
+predictions_eip50_summary <- predictions_eip50 %>%
+	mutate(iteration = rownames(.)) %>% 
+	dplyr::select(iteration, everything()) %>% 
+	gather(key = temperature, value = growth_rate, 2:(N.Temp.xs + 1)) %>%
+	dplyr::group_by(temperature) %>%  
+	summarise(`2.5%`=quantile(growth_rate, probs=0.025),
+			  `97.5%`=quantile(growth_rate, probs=0.975),
+			  mean = mean(growth_rate)) %>% 
+	mutate(temperature = as.numeric(temperature)) %>% 
+	mutate(treatment = "eip50")
+
+write_csv(predictions_eip50_summary, "data-processed/predictions_eip50_summary.csv")
+
+topt_eip50 <- predictions_eip50 %>% 
+	mutate(iteration = rownames(.)) %>%
+	dplyr::select(iteration, everything()) %>% 
+	gather(key = temperature, value = growth_rate, 2:(N.Temp.xs + 1)) %>% 
+	group_by(iteration) %>% 
+	top_n(n = 1, wt = growth_rate) %>% 
+	ungroup() %>% 
+	mutate(temperature = as.numeric(temperature)) %>% 
+	summarise(`2.5%` =quantile(temperature, probs=0.025),
+			  `97.5%`=quantile(temperature, probs=0.975),
+			  mean = mean(temperature)) %>% 
+	mutate(term = "Topt") %>% 
+	mutate(treatment = "eip50")
+
+b_params_eip50 <- as.data.frame(model_out_eip50$BUGSoutput$summary[1:5,]) %>%
+	rownames_to_column(var = "term") %>% 
+	mutate(treatment = "eip50")
+
+params_eip50_all <- bind_rows(b_params_eip50, topt_eip50)
+# View(params_lifespan_dtr12_all)
+
+write_csv(params_eip50_all, "data-processed/params_eip50_all.csv")
+
+### raw data to plot
+data_eip50_sum <- data_eip50 %>%
+	rename("temperature" = "T") %>% 
+	group_by(temperature) %>% 
+	summarise(mean =  mean(trait),
+			  std_error = std.error(trait)) %>% 
+	mutate(trait = "eip50") %>% 
+	mutate(treatment = "eip50")
+
+write_csv(data_eip50_sum, "data-processed/data_eip50_sum.csv")
+
+
+
+
+
 # 12. PEA -----------------------------------------------------------------
 
 data_pea
 model_out_pea
+
+predictions_pea <- as.data.frame(model_out_pea$BUGSoutput$sims.list$z.trait.mu.pred, col_names = Temp.xs)   ### columns are temperatures, rows are iterations
+colnames(predictions_pea) <- Temp.xs
+
+predictions_pea_summary <- predictions_pea %>%
+	mutate(iteration = rownames(.)) %>% 
+	dplyr::select(iteration, everything()) %>% 
+	gather(key = temperature, value = growth_rate, 2:(N.Temp.xs + 1)) %>%
+	dplyr::group_by(temperature) %>%  
+	summarise(`2.5%`=quantile(growth_rate, probs=0.025),
+			  `97.5%`=quantile(growth_rate, probs=0.975),
+			  mean = mean(growth_rate)) %>% 
+	mutate(temperature = as.numeric(temperature)) %>% 
+	mutate(treatment = "pea")
+
+write_csv(predictions_pea_summary, "data-processed/predictions_pea_summary.csv")
+
+topt_pea <- predictions_pea %>% 
+	mutate(iteration = rownames(.)) %>%
+	dplyr::select(iteration, everything()) %>% 
+	gather(key = temperature, value = growth_rate, 2:(N.Temp.xs + 1)) %>% 
+	group_by(iteration) %>% 
+	top_n(n = 1, wt = growth_rate) %>% 
+	ungroup() %>% 
+	mutate(temperature = as.numeric(temperature)) %>% 
+	summarise(`2.5%` =quantile(temperature, probs=0.025),
+			  `97.5%`=quantile(temperature, probs=0.975),
+			  mean = mean(temperature)) %>% 
+	mutate(term = "Topt") %>% 
+	mutate(treatment = "pea")
+
+b_params_pea <- as.data.frame(model_out_pea$BUGSoutput$summary[1:5,]) %>%
+	rownames_to_column(var = "term") %>% 
+	mutate(treatment = "pea")
+
+params_pea_all <- bind_rows(b_params_pea, topt_pea)
+# View(params_lifespan_dtr12_all)
+
+write_csv(params_pea_all, "data-processed/params_pea_all.csv")
+
+### raw data to plot
+data_pea_sum <- data_pea %>%
+	rename("temperature" = "T") %>% 
+	group_by(temperature) %>% 
+	summarise(mean =  mean(trait),
+			  std_error = std.error(trait)) %>% 
+	mutate(trait = "pea") %>% 
+	mutate(treatment = "pea")
+
+write_csv(data_pea_sum, "data-processed/data_pea_sum.csv")
+
+
 
 
 # 13. MDR -----------------------------------------------------------------
 
 data_mdr
 model_out_mdr
+
+
+predictions_mdr <- as.data.frame(model_out_mdr$BUGSoutput$sims.list$z.trait.mu.pred, col_names = Temp.xs)   ### columns are temperatures, rows are iterations
+colnames(predictions_mdr) <- Temp.xs
+
+predictions_mdr_summary <- predictions_mdr %>%
+	mutate(iteration = rownames(.)) %>% 
+	dplyr::select(iteration, everything()) %>% 
+	gather(key = temperature, value = growth_rate, 2:(N.Temp.xs + 1)) %>%
+	dplyr::group_by(temperature) %>%  
+	summarise(`2.5%`=quantile(growth_rate, probs=0.025),
+			  `97.5%`=quantile(growth_rate, probs=0.975),
+			  mean = mean(growth_rate)) %>% 
+	mutate(temperature = as.numeric(temperature)) %>% 
+	mutate(treatment = "mdr")
+
+write_csv(predictions_mdr_summary, "data-processed/predictions_mdr_summary.csv")
+
+topt_mdr <- predictions_mdr %>% 
+	mutate(iteration = rownames(.)) %>%
+	dplyr::select(iteration, everything()) %>% 
+	gather(key = temperature, value = growth_rate, 2:(N.Temp.xs + 1)) %>% 
+	group_by(iteration) %>% 
+	top_n(n = 1, wt = growth_rate) %>% 
+	ungroup() %>% 
+	mutate(temperature = as.numeric(temperature)) %>% 
+	summarise(`2.5%` =quantile(temperature, probs=0.025),
+			  `97.5%`=quantile(temperature, probs=0.975),
+			  mean = mean(temperature)) %>% 
+	mutate(term = "Topt") %>% 
+	mutate(treatment = "mdr")
+
+b_params_mdr <- as.data.frame(model_out_mdr$BUGSoutput$summary[1:5,]) %>%
+	rownames_to_column(var = "term") %>% 
+	mutate(treatment = "mdr")
+
+params_mdr_all <- bind_rows(b_params_mdr, topt_mdr)
+# View(params_lifespan_dtr12_all)
+
+write_csv(params_mdr_all, "data-processed/params_mdr_all.csv")
+
+### raw data to plot
+data_mdr_sum <- data_mdr %>%
+	rename("temperature" = "T") %>% 
+	group_by(temperature) %>% 
+	summarise(mean =  mean(trait),
+			  std_error = std.error(trait)) %>% 
+	mutate(trait = "mdr") %>% 
+	mutate(treatment = "mdr")
+
+write_csv(data_mdr_sum, "data-processed/data_mdr_sum.csv")
+

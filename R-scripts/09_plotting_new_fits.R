@@ -457,14 +457,14 @@ ggsave("figures/bite_rate_plot.pdf", bite_rate_plot, width = 7, height = 5)
 ### now onto the other metrics of performance!
 
 
-
+### March 30 2022 plotting
 # New plotting centralized ------------------------------------------------
 
 
-### bc data
-"data-processed/predictions_bc_constant_summary.csv"
-"data-processed/params_bc_constant_all.csv"
-"data-processed/data_bc_constant_sum.csv"
+# ### bc data
+# "data-processed/predictions_bc_constant_summary.csv"
+# "data-processed/params_bc_constant_all.csv"
+# "data-processed/data_bc_constant_sum.csv"
 
 ### bite rate constant
 bite.rate.constant.predictions <- read_csv("data-processed/predictions_bite_rate_constant_summary.csv")
@@ -480,10 +480,7 @@ bite.rate.dtr12.params <- read_csv("data-processed/params_bite_rate_dtr12_all.cs
 bite.rate.dtr12.sum <- read_csv("data-processed/data_bite_rate_dtr12_sum.csv")
 
 #### all bite rates
-library(cowplot)
-theme_set(theme_cowplot())
 
-View(bite.rate.dtr12.predictions)
 
 all_bite_rate_predictions <- bind_rows(bite.rate.constant.predictions, bite.rate.dtr9.predictions, bite.rate.dtr12.predictions)
 all_bite_rate_sums <- bind_rows(bite.rate.constant.sum, bite.rate.dtr9.sum, bite.rate.dtr12.sum)
@@ -544,7 +541,7 @@ all_lifespan_predictions <- bind_rows(lifespan.constant.predictions, lifespan.dt
 all_lifespan_sums <- bind_rows(lifespan.constant.sum, lifespan.dtr9.sum, lifespan.dtr12.sum)
 
 
-View(lifespan.constant.sum )
+# View(lifespan.constant.sum )
 
 ### plot for lifespan
 lifespan_plot <- all_lifespan_predictions %>% 
@@ -627,9 +624,149 @@ eggs_plot_all <- eggs_plot / params_plot_eggs + plot_layout(heights = c(3, 0.5))
 ggsave("figures/eggs_plot_all.pdf", eggs_plot_all, width = 7, height = 5)
 
 
+
+
+# pea ---------------------------------------------------------------------
+pea.constant.predictions <- read_csv("data-processed/predictions_pea_summary.csv")
+pea.constant.params <- read_csv("data-processed/params_pea_all.csv")
+pea.constant.sum <- read_csv("data-processed/data_pea_sum.csv")
+
+#### all pea
+
+all_pea_predictions <- bind_rows(pea.constant.predictions)
+all_pea_sums <- bind_rows(pea.constant.sum)
+
+
+### plot for pea
+pea_plot <- all_pea_predictions %>% 
+	ggplot() +
+	geom_ribbon(aes(x = temperature, ymin = `2.5%`, ymax = `97.5%`, fill = treatment), alpha = 0.6) +
+	geom_line(aes(x = temperature, y = mean, color = treatment)) +
+	geom_pointrange(aes(x = temperature, ymin = mean - std_error, ymax = mean + std_error, y = mean), shape = 1, data = all_pea_sums, size = 1) +
+	geom_pointrange(aes(x = temperature, ymin = mean - std_error, ymax = mean + std_error, y = mean, color = treatment), data = all_pea_sums, size = 0.8) +
+	scale_color_viridis_d(begin = 0.1, end = 0.8) +
+	scale_fill_viridis_d(begin = 0.1, end = 0.8) + ylab("pea") + xlab("Temperature (C)") +xlim(0, 40)
+
+ggsave("figures/pea_plot.pdf", width = 8, height = 6)
+
+### now get the parameters on there.
+
+all_params_pea <- bind_rows(pea.constant.params) %>% 
+	dplyr::filter(term %in% c("Topt", "cf.Tm", "cf.T0")) %>% 
+	mutate(term = case_when(term == "cf.Tm" ~ "Tmax",
+							term == "cf.T0"~ "Tmin",
+							term == "Topt" ~ "Topt"))
+params_plot_pea <- ggplot() +
+	geom_pointrange(aes(x = term, y = mean, ymin = `2.5%`, ymax = `97.5%`, color = treatment), data = all_params_pea, position=position_dodge(width=1)) +
+	ylim(0, 40) +
+	coord_flip() + ylab("Temperature (°C)") +
+	scale_color_viridis_d(begin = 0.1, end = 0.8) +
+	scale_fill_viridis_d(begin = 0.1, end = 0.8)
+
+
+pea_plot_all <- pea_plot / params_plot_pea + plot_layout(heights = c(3, 0.5))
+
+ggsave("figures/pea_plot_all.pdf", pea_plot_all, width = 7, height = 5)
+
+
+# mdr ---------------------------------------------------------------------
+mdr.constant.predictions <- read_csv("data-processed/predictions_mdr_summary.csv")
+mdr.constant.params <- read_csv("data-processed/params_mdr_all.csv")
+mdr.constant.sum <- read_csv("data-processed/data_mdr_sum.csv")
+
+#### all mdr
+
+all_mdr_predictions <- bind_rows(mdr.constant.predictions)
+all_mdr_sums <- bind_rows(mdr.constant.sum)
+
+
+### plot for mdr
+mdr_plot <- all_mdr_predictions %>% 
+	ggplot() +
+	geom_ribbon(aes(x = temperature, ymin = `2.5%`, ymax = `97.5%`, fill = treatment), alpha = 0.6) +
+	geom_line(aes(x = temperature, y = mean, color = treatment)) +
+	geom_pointrange(aes(x = temperature, ymin = mean - std_error, ymax = mean + std_error, y = mean), shape = 1, data = all_mdr_sums, size = 1) +
+	geom_pointrange(aes(x = temperature, ymin = mean - std_error, ymax = mean + std_error, y = mean, color = treatment), data = all_mdr_sums, size = 0.8) +
+	scale_color_viridis_d(begin = 0.1, end = 0.8) +
+	scale_fill_viridis_d(begin = 0.1, end = 0.8) + ylab("mdr") + xlab("Temperature (C)") +xlim(0, 40)
+
+ggsave("figures/mdr_plot.pdf", width = 8, height = 6)
+
+### now get the parameters on there.
+
+all_params_mdr <- bind_rows(mdr.constant.params) %>% 
+	dplyr::filter(term %in% c("Topt", "cf.Tm", "cf.T0")) %>% 
+	mutate(term = case_when(term == "cf.Tm" ~ "Tmax",
+							term == "cf.T0"~ "Tmin",
+							term == "Topt" ~ "Topt"))
+params_plot_mdr <- ggplot() +
+	geom_pointrange(aes(x = term, y = mean, ymin = `2.5%`, ymax = `97.5%`, color = treatment), data = all_params_mdr, position=position_dodge(width=1)) +
+	ylim(0, 40) +
+	coord_flip() + ylab("Temperature (°C)") +
+	scale_color_viridis_d(begin = 0.1, end = 0.8) +
+	scale_fill_viridis_d(begin = 0.1, end = 0.8)
+
+
+mdr_plot_all <- mdr_plot / params_plot_mdr + plot_layout(heights = c(3, 0.5))
+
+ggsave("figures/mdr_plot_all.pdf", mdr_plot_all, width = 7, height = 5)
+
+
+
+# eip50 ---------------------------------------------------------------------
+eip50.constant.predictions <- read_csv("data-processed/predictions_eip50_summary.csv")
+eip50.constant.params <- read_csv("data-processed/params_eip50_all.csv")
+eip50.constant.sum <- read_csv("data-processed/data_eip50_sum.csv")
+
+#### all eip50
+
+all_eip50_predictions <- bind_rows(eip50.constant.predictions)
+all_eip50_sums <- bind_rows(eip50.constant.sum)
+
+
+### plot for eip50
+eip50_plot <- all_eip50_predictions %>% 
+	ggplot() +
+	geom_ribbon(aes(x = temperature, ymin = `2.5%`, ymax = `97.5%`, fill = treatment), alpha = 0.6) +
+	geom_line(aes(x = temperature, y = mean, color = treatment)) +
+	geom_pointrange(aes(x = temperature, ymin = mean - std_error, ymax = mean + std_error, y = mean), shape = 1, data = all_eip50_sums, size = 1) +
+	geom_pointrange(aes(x = temperature, ymin = mean - std_error, ymax = mean + std_error, y = mean, color = treatment), data = all_eip50_sums, size = 0.8) +
+	scale_color_viridis_d(begin = 0.1, end = 0.8) +
+	scale_fill_viridis_d(begin = 0.1, end = 0.8) + ylab("eip50") + xlab("Temperature (C)") +xlim(0, 45)
+
+ggsave("figures/eip50_plot.pdf", width = 8, height = 6)
+
+### now get the parameters on there.
+
+all_params_eip50 <- bind_rows(eip50.constant.params) %>% 
+	dplyr::filter(term %in% c("Topt", "cf.Tm", "cf.T0")) %>% 
+	mutate(term = case_when(term == "cf.Tm" ~ "Tmax",
+							term == "cf.T0"~ "Tmin",
+							term == "Topt" ~ "Topt"))
+params_plot_eip50 <- ggplot() +
+	geom_pointrange(aes(x = term, y = mean, ymin = `2.5%`, ymax = `97.5%`, color = treatment), data = all_params_eip50, position=position_dodge(width=1)) +
+	ylim(0, 40) +
+	coord_flip() + ylab("Temperature (°C)") +
+	scale_color_viridis_d(begin = 0.1, end = 0.8) +
+	scale_fill_viridis_d(begin = 0.1, end = 0.8)
+
+
+eip50_plot_all <- eip50_plot / params_plot_eip50 + plot_layout(heights = c(3, 0.5))
+
+ggsave("figures/eip50_plot_all.pdf", eip50_plot_all, width = 7, height = 5)
+
+
+
+
 ### ok now merge all three plots together! woohoo!
 ### ok something is wrong with the lifespan plot -- we are missing the constant data and the fits look wrong
 
-all_plots <- wrap_plots(eggs_plot_all, lifespan_plot_all, bite_rate_plot_all)
+all_plots <- wrap_plots(eggs_plot_all, lifespan_plot_all, bite_rate_plot_all, eip50_plot_all, mdr_plot_all, pea_plot_all)
 ggsave('figures/all_plots_combined-feb4-3.pdf', all_plots, width = 18, height = 6)
+ggsave('figures/all_plots_combined-march22.pdf', all_plots, width = 18, height = 6)
 ### OK so the best fits are briere for bite rate and egg production but quadratic for lifespan.
+
+
+
+#### OK so to calculate ST -- 
+
