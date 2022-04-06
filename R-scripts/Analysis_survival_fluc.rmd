@@ -27,13 +27,16 @@ library(survival)
 library(coxme)
 library(dplyr)
 library(ggpubr)
+library(tidyverse)
 
 
 # importing data set
-const_data <- read.csv("data/constant_master.csv")
-fluc9_data <- read.csv("data/fluc_dtr9_master.csv")
-fluc12_data <- read.csv("data/fluc_dtr12_master.csv")
-
+# const_data <- read.csv("data-raw/constant.individual.trait.csv")
+const_data <- read.csv("data-raw/constant_master.csv")
+# fluc9_data <- read.csv("data-raw/fluc_dtr9_master.csv")
+fluc9_data <-read.csv("data-raw/fluc9.individual.trait.csv")
+# fluc12_data <- read.csv("data-raw/fluc_dtr12_master.csv")
+fluc12_data <- read.csv("data-raw/fluc12.individual.trait.csv")
 #resassigning colm classifications for const data set
 const_data$Date <- as.character(const_data$Date)
 const_data$Date2 <- as.POSIXlt(const_data$Date, format = "%m/%d/%Y")
