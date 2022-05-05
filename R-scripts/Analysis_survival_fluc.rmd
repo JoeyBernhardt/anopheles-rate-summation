@@ -32,11 +32,11 @@ library(tidyverse)
 
 # importing data set
 # const_data <- read.csv("data-raw/constant.individual.trait.csv")
-const_data <- read.csv("data-raw/constant_master.csv")
-# fluc9_data <- read.csv("data-raw/fluc_dtr9_master.csv")
-fluc9_data <-read.csv("data-raw/fluc9.individual.trait.csv")
-# fluc12_data <- read.csv("data-raw/fluc_dtr12_master.csv")
-fluc12_data <- read.csv("data-raw/fluc12.individual.trait.csv")
+const_data <- read.csv("data-raw/kerri-data-from-drive/constant_master.csv")
+fluc9_data <- read.csv("data-raw/kerri-data-from-drive/fluc_dtr9_master.csv")
+# fluc9_data <-read.csv("data-raw/fluc9.individual.trait.csv")
+fluc12_data <- read.csv("data-raw/kerri-data-from-drive/fluc_dtr12_master.csv")
+# fluc12_data <- read.csv("data-raw/fluc12.individual.trait.csv")
 #resassigning colm classifications for const data set
 const_data$Date <- as.character(const_data$Date)
 const_data$Date2 <- as.POSIXlt(const_data$Date, format = "%m/%d/%Y")
@@ -66,7 +66,7 @@ library(survival)
 library(survminer)
 
 const_surv_data <- subset(const_data, select = c("Date","Treatment", "Block","Donor", "Female", "Dead", "Day"))
-fluc9_surv_data <- subset(fluc9_data, select = c("Date","Treatment", "Block","Donor", "Female", "Dead", "Day"))
+fluc9_surv_data <- subset(fluc9_data, select = c("Date","Treatment", "Block","Donor", "Female", "Dead", "Day")) ### donor, female, dead aren't in this file, as far as I can tell
 fluc12_surv_data <- subset(fluc12_data, select = c("Date","Treatment", "Block","Donor", "Female", "Dead", "Day"))
 
 ##Changing the name of "Dead" to "Event" for ease of understanding
@@ -125,9 +125,9 @@ summary(fluc12_surv_Temp)
 #**Note:When manually extracting I added a datarow for each temp (day = 0, survival = 1) for graphing purposes
 
 #Loading the csv files back in for use in code
-const_surv_KM_values <- read.csv("data/KM_estimates_constant.csv")
-fluc9_surv_KM_values <- read.csv("data/KM_estimates_dtr9.csv")
-fluc12_surv_KM_values <- read.csv("data/KM_estimates_dtr12.csv")
+const_surv_KM_values <- read.csv("data-raw/kerri-data-from-drive/KM_estimates_constant.csv")
+fluc9_surv_KM_values <- read.csv("data-raw/kerri-data-from-drive/KM_estimates_dtr9.csv")
+fluc12_surv_KM_values <- read.csv("data-raw/kerri-data-from-drive/KM_estimates_dtr12.csv")
 
 #Extracting KM_estimates for each Program (constant, dtr9, dtr12)to a dataframe - did not work properly
 #Convert R model to a dataframe
@@ -255,7 +255,7 @@ s
 plot.survivorship <- s + facet_grid(treatment ~ .) + theme(strip.background = element_blank(), strip.text = element_blank()) #+ coord_fixed( ratio = 20)
 plot.survivorship
 output <- ggarrange(plot.survivorship, labels = c("A"), font.label = list(size =14))
-ggsave("plots/survivorplot_paneltemp.png", output, path = NULL, scale = 1, width = 3.5, height = 5.5, device = 'png', dpi = 600)
+ggsave("figures/survivorplot_paneltemp.png", output, path = NULL, scale = 1, width = 3.5, height = 5.5, device = 'png', dpi = 600)
 
 
 #Grid layout to isolate the effects
@@ -481,52 +481,55 @@ KM_DTR9_32_B2 <- survfit(Surv(Day,Event) ~ 1, data = KM_DTR9_32_B2)
 temp16DTR9_B1_KM_values <- fortify(KM_DTR9_16_B1)
 temp16DTR9_B1_KM_values <- cbind(temp16DTR9_B1_KM_values$time, temp16DTR9_B1_KM_values$surv)
 temp16DTR9_B1_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp16DTR9_B1_KM_values)
-write.csv(temp16DTR9_B1_KM_values, "data/temp16DTR9_B1_KM_values.csv", row.names = FALSE)
+write.csv(temp16DTR9_B1_KM_values, "data-processed/temp16DTR9_B1_KM_values.csv", row.names = FALSE)
 
 temp16DTR9_B2_KM_values <- fortify(KM_DTR9_16_B2)
 temp16DTR9_B2_KM_values <- cbind(temp16DTR9_B2_KM_values$time, temp16DTR9_B2_KM_values$surv)
 temp16DTR9_B2_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp16DTR9_B2_KM_values)
-write.csv(temp16DTR9_B2_KM_values, "data/temp16DTR9_B2_KM_values.csv", row.names = FALSE)
+write.csv(temp16DTR9_B2_KM_values, "data-processed/temp16DTR9_B2_KM_values.csv", row.names = FALSE)
 
 temp20DTR9_B1_KM_values <- fortify(KM_DTR9_20_B1)
 temp20DTR9_B1_KM_values <- cbind(temp20DTR9_B1_KM_values$time, temp20DTR9_B1_KM_values$surv)
 temp20DTR9_B1_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp20DTR9_B1_KM_values)
-write.csv(temp20DTR9_B1_KM_values, "data/temp20DTR9_B1_KM_values.csv", row.names = FALSE)
+write.csv(temp20DTR9_B1_KM_values, "data-processed/temp20DTR9_B1_KM_values.csv", row.names = FALSE)
 
 temp20DTR9_B2_KM_values <- fortify(KM_DTR9_20_B2)
 temp20DTR9_B2_KM_values <- cbind(temp20DTR9_B2_KM_values$time, temp20DTR9_B2_KM_values$surv)
 temp20DTR9_B2_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp20DTR9_B2_KM_values)
-write.csv(temp20DTR9_B2_KM_values, "data/temp20DTR9_B2_KM_values.csv", row.names = FALSE)
+write.csv(temp20DTR9_B2_KM_values, "data-processed/temp20DTR9_B2_KM_values.csv", row.names = FALSE)
 
 temp24DTR9_B1_KM_values <- fortify(KM_DTR9_24_B1)
 temp24DTR9_B1_KM_values <- cbind(temp24DTR9_B1_KM_values$time, temp24DTR9_B1_KM_values$surv)
 temp24DTR9_B1_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp24DTR9_B1_KM_values)
-write.csv(temp24DTR9_B1_KM_values, "data/temp24DTR9_B1_KM_values.csv", row.names = FALSE)
+write.csv(temp24DTR9_B1_KM_values, "data-processed/temp24DTR9_B1_KM_values.csv", row.names = FALSE)
 
 temp24DTR9_B2_KM_values <- fortify(KM_DTR9_24_B2)
 temp24DTR9_B2_KM_values <- cbind(temp24DTR9_B2_KM_values$time, temp24DTR9_B2_KM_values$surv)
 temp24DTR9_B2_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp24DTR9_B2_KM_values)
-write.csv(temp24DTR9_B2_KM_values, "data/temp24DTR9_B2_KM_values.csv", row.names = FALSE)
+write.csv(temp24DTR9_B2_KM_values, "data-processed/temp24DTR9_B2_KM_values.csv", row.names = FALSE)
 
 temp28DTR9_B1_KM_values <- fortify(KM_DTR9_28_B1)
 temp28DTR9_B1_KM_values <- cbind(temp28DTR9_B1_KM_values$time, temp28DTR9_B1_KM_values$surv)
 temp28DTR9_B1_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp28DTR9_B1_KM_values)
-write.csv(temp28DTR9_B1_KM_values, "data/temp28DTR9_B1_KM_values.csv", row.names = FALSE)
+write.csv(temp28DTR9_B1_KM_values, "data-processed/temp28DTR9_B1_KM_values.csv", row.names = FALSE)
 
 temp28DTR9_B2_KM_values <- fortify(KM_DTR9_28_B2)
 temp28DTR9_B2_KM_values <- cbind(temp28DTR9_B2_KM_values$time, temp28DTR9_B2_KM_values$surv)
 temp28DTR9_B2_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp28DTR9_B2_KM_values)
-write.csv(temp28DTR9_B2_KM_values, "data/temp28DTR9_B2_KM_values.csv", row.names = FALSE)
+write.csv(temp28DTR9_B2_KM_values, "data-processed/temp28DTR9_B2_KM_values.csv", row.names = FALSE)
 
 temp32DTR9_B1_KM_values <- fortify(KM_DTR9_32_B1)
 temp32DTR9_B1_KM_values <- cbind(temp32DTR9_B1_KM_values$time, temp32DTR9_B1_KM_values$surv)
 temp32DTR9_B1_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp32DTR9_B1_KM_values)
-write.csv(temp32DTR9_B1_KM_values, "data/temp32DTR9_B1_KM_values.csv", row.names = FALSE)
+write.csv(temp32DTR9_B1_KM_values, "data-processed/temp32DTR9_B1_KM_values.csv", row.names = FALSE)
+
+### EIP extrinsic incubation period
+### PDR parasite development rate
 
 temp32DTR9_B2_KM_values <- fortify(KM_DTR9_32_B2)
 temp32DTR9_B2_KM_values <- cbind(temp32DTR9_B2_KM_values$time, temp32DTR9_B2_KM_values$surv)
 temp32DTR9_B2_KM_values  <- rbind(data.frame(V1 = 0, V2 = 1), temp32DTR9_B2_KM_values)
-write.csv(temp32DTR9_B2_KM_values, "data/temp32DTR9_B2_KM_values.csv", row.names = FALSE)
+write.csv(temp32DTR9_B2_KM_values, "data-processed/temp32DTR9_B2_KM_values.csv", row.names = FALSE)
 
 
 #1 - Temp16_Block1
@@ -615,7 +618,7 @@ life.summary.dtr9 <- summarise(group_by(life.expect.dtr9, treatment), ave = mean
 life.summary.dtr9$program <- "fluctuation9"
 
 #Export this for use in excel
-write.csv(life.expect.dtr9, "data/lifeexpectDTR9.replicate.ave.fromGOMPZ.csv")
+write.csv(life.expect.dtr9, "data-processed/lifeexpectDTR9.replicate.ave.fromGOMPZ.csv")
 
 ###############
 ####

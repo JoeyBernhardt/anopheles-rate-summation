@@ -1,0 +1,705 @@
+---
+title: "Statistical Analysis"
+author: "Kerri Miazgowicz"
+organization: "University of Georgia"
+date: "May 17, 2019"
+output:
+  word_document: default
+  html_document: default
+---
+###Updated April 23,2020
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Survival Analysis
+
+###Kaplain-Meir Curves & Associated Plots
+###Step 1: Importing data & formating data for survival analysis
+```{r}
+# Set working directory
+mainDir = "C:/Users/Kerri/Desktop/Chapter2 InProgress"
+setwd(mainDir)
+
+library(ggplot2)
+library(ggfortify)
+library(survival)
+library(coxme)
+library(dplyr)
+library(ggpubr)
+
+
+# importing data set
+const_data <- read.csv("data/constant_master.csv")
+fluc9_data <- read.csv("data/fluc_dtr9_master.csv")
+fluc12_data <- read.csv("data/fluc_dtr12_master.csv")
+
+#resassigning colm classifications for const data set
+const_data$Date <- as.character(const_data$Date)
+const_data$Date2 <- as.POSIXlt(const_data$Date, format = "%m/%d/%Y")
+const_data$Female <- as.factor(const_data$Female)
+const_data$Treatment <- as.factor(const_data$Treatment)
+
+# Reassigning colm classifications
+fluc9_data$Date <- as.character(fluc9_data$Date)
+fluc9_data$Date2 <- as.POSIXlt(fluc9_data$Date, format = "%m/%d/%Y")
+fluc9_data$Female <- as.factor(fluc9_data$Female)
+fluc9_data$Treatment <- as.factor(fluc9_data$Treatment)
+
+#reassigning colm classifcations for the 12DTR set
+fluc12_data$Date <- as.character(fluc12_data$Date)
+fluc12_data$Date2 <- as.POSIXlt(fluc12_data$Date, format = "%m/%d/%Y")
+fluc12_data$Female <- as.factor(fluc12_data$Female)
+fluc12_data$Treatment <- as.factor(fluc12_data$Treatment)
+
+```
+
+##Survival analysis
+```{r}
+
+#Format the datasets to be compatabile wth survival data
+library(ggfortify)
+library(survival)
+library(survminer)
+
+const_surv_data <- subset(const_data, select = c("Date","Treatment", "Block","Donor", "Female", "Dead", "Day"))
+fluc9_surv_data <- subset(fluc9_data, select = c("Date","Treatment", "Block","Donor", "Female", "Dead", "Day"))
+fluc12_surv_data <- subset(fluc12_data, select = c("Date","Treatment", "Block","Donor", "Female", "Dead", "Day"))
+
+##Changing the name of "Dead" to "Event" for ease of understanding
+names(const_surv_data)[6]<- paste("Event")
+names(fluc9_surv_data)[6]<- paste("Event")
+names(fluc12_surv_data)[6] <- paste("Event")
+
+
+#Removing all non-events from the dataframe
+const_surv_data <- const_surv_data[!(const_surv_data$Event == 0),]
+fluc9_surv_data <- fluc9_surv_data[!(fluc9_surv_data$Event == 0),]
+fluc12_surv_data <- fluc12_surv_data[!(fluc12_surv_data$Event == 0),]
+
+#Changing Event == 2 to 0 to indicate right censoring
+const_surv_data$Event[const_surv_data$Event == 2] <- 0
+fluc9_surv_data$Event[fluc9_surv_data$Event == 2] <- 0
+fluc12_surv_data$Event[fluc12_surv_data$Event == 2] <- 0
+
+#Set Treatment, Block, Donor as factors
+const_surv_data$Date <-as.character(const_surv_data$Date)
+const_surv_data$Date2 <-as.POSIXlt(const_surv_data$Date, format="%m/%d/%Y")
+const_surv_data$Treatment <- as.factor(const_surv_data$Treatment)
+const_surv_data$Block <- as.factor(const_surv_data$Block)
+const_surv_data$Donor <- as.factor(const_surv_data$Donor)
+const_surv_data$Female <- as.factor(const_surv_data$Female)
+
+fluc9_surv_data$Date <-as.character(fluc9_surv_data$Date)
+fluc9_surv_data$Date2 <-as.POSIXlt(fluc9_surv_data$Date, format="%m/%d/%Y")
+fluc9_surv_data$Treatment <- as.factor(fluc9_surv_data$Treatment)
+fluc9_surv_data$Block <- as.factor(fluc9_surv_data$Block)
+fluc9_surv_data$Donor <- as.factor(fluc9_surv_data$Donor)
+fluc9_surv_data$Female <- as.factor(fluc9_surv_data$Female)
+
+fluc12_surv_data$Date <-as.character(fluc12_surv_data$Date)
+fluc12_surv_data$Date2 <-as.POSIXlt(fluc12_surv_data$Date, format="%m/%d/%Y")
+fluc12_surv_data$Treatment <- as.factor(fluc12_surv_data$Treatment)
+fluc12_surv_data$Block <- as.factor(fluc12_surv_data$Block)
+fluc12_surv_data$Donor <- as.factor(fluc12_surv_data$Donor)
+fluc12_surv_data$Female <- as.factor(fluc12_surv_data$Female)
+
+#KM Curve setup 
+const_surv_Temp <- survfit(Surv(Day, Event) ~ Treatment, data = const_surv_data)
+fluc9_surv_Temp <- survfit(Surv(Day, Event) ~ Treatment, data = fluc9_surv_data)
+fluc12_surv_Temp <- survfit(Surv(Day, Event) ~ Treatment, data = fluc12_surv_data)
+
+#Viewing
+summary(const_surv_Temp)
+summary(fluc9_surv_Temp)
+summary(fluc12_surv_Temp)
+
+
+#Look at statistical differences between temperature treatments within a program
+const.diff.Temp <- survdiff(Surv(Day,Event) ~ Treatment, data = const_surv_data)
+const.diff.Temp
+
+fluc9.diff.Temp <- survdiff(Surv(Day,Event) ~ Treatment, data = fluc9_surv_data)
+fluc9.diff.Temp
+
+fluc12.diff.Temp <- survdiff(Surv(Day, Event) ~ Treatment, data = fluc12_surv_data)
+fluc12.diff.Temp
+#TEMPERATUER IS HIGHLY SIGNIFICANT REGARDLESS OF THE PROGRAM
+```
+
+
+Extracting out the survival estimates for use later on
+```{r}
+#Function to extract the KM_estimates for each program into a list of dataframes
+#input: df of all survival data of the same program treatment
+#output: list -> for each temperaturue a list index of the KM.estimates for that temp
+extract.KM.estimates <- function(df){
+  #initialize list 
+  out.list <- vector(mode = "list", length = nlevels(df$Treatment))
+  #Create a integer vector corresponding to the factors temp
+  temps <- as.numeric(levels(df$Treatment))
+  #loop through each treatment in the full df to generate KM.estimates for each temp
+  for(i in 1:length(temps)){#start for loop
+    #Step 1: subset dataframe
+    sub.dat <- subset(df, Treatment == temps[i], select = c(Event,Day))
+    #Step 2: create survfit object
+    sub.fit <- survfit(Surv(Day,Event)~1, data = sub.dat)
+    #Step 3: convert to df from the surfit object
+    new.df <- fortify(sub.fit)
+    #Step 4: add df column corresponding to temperature
+    new.df$temp <- temps[i]
+    #Step 5: add a row to the df corresponding to initial conditios (n.risk)
+    n.start <- sub.fit$n
+    new.df <- rbind(data.frame(time =0, n.risk = n.start, n.event=0, n.censor= 0, surv= 1, std.err = 0, upper =1, lower =1,temp = temps[i]), new.df)
+    #Step 6: add df to the list index
+    out.list[[i]] <- new.df
+  }#end for loop
+  return (out.list)
+}#end function
+
+#Use function to extract KM estimates
+constant.surv.estimates.list <- extract.KM.estimates(const_surv_data)
+f9.surv.estimates.list <- extract.KM.estimates(fluc9_surv_data)
+f12.surv.estimates.list <- extract.KM.estimates(fluc12_surv_data)
+
+#Combine all dataframes together with DTR listed
+#input: list of all the KM estimates for a single program
+#output: combined dataframe with program included
+
+combine.KM.estimates <- function(list){
+  #initialize new df
+  compile.df <- NULL
+  for(j in 1:length(list)){
+    sub.df <- list[[j]]
+    ifelse(j == 1, compile.df <- sub.df ,compile.df <- rbind(sub.df, compile.df))
+  }#end for
+  return(compile.df)
+}#end function
+
+#Use function to gain compiled df
+compiled.c.surv.est <- combine.KM.estimates(constant.surv.estimates.list)
+compiled.c.surv.est$program <- "constant"
+compiled.f9.surv.est<- combine.KM.estimates(f9.surv.estimates.list)
+compiled.f9.surv.est$program <- "+/- 4.5"
+compiled.f12.surv.est<- combine.KM.estimates(f12.surv.estimates.list)
+compiled.f12.surv.est$program <- "+/- 6"
+
+#Export the files in case I want these later on
+#write.csv(compiled.c.surv.est, "data/constant.KM.estimates.csv", row.names = F)
+#write.csv(compiled.f9.surv.est, "data/dtr9.KM.estimates.csv", row.names = F)
+#write.csv(compiled.f12.surv.est, "data/dtr12.KM.estimates.csv", row.names = F)
+
+```
+
+Visualization
+
+```{r}
+#To make pretty plots- Make two figures, one which has just survival data from the fluc exp to illustrate temp differences and then a second one with a panel to show the diff between fluc and const at each temperature.
+
+#FINAL SURVIVAL PLOT WITH KM ESTIMATES FROM BOTH THE constant and flucuations
+all.surv.estimates <- NA
+all.KM.estimates <- rbind(compiled.c.surv.est, compiled.f9.surv.est,compiled.f12.surv.est)
+
+#convert program to factor for plotting here
+all.KM.estimates$program <- factor(all.KM.estimates$program, levels = c("constant", "+/- 4.5","+/- 6"))
+
+#Pretty ugly -> all data
+ggplot(data = all.KM.estimates, aes(x=time, y= surv, colour = factor(temp))) + 
+        scale_colour_manual("Temperature", values = c("purple", "blue", "darkgreen", "darkorange1", "firebrick3","black")) +
+        scale_fill_manual("Temperature", values= c("purple", "blue", "darkgreen", "darkorange1", "firebrick3","black")) +
+        scale_x_continuous(name="Days at treatment", limits = c (0, 60), breaks = seq(0,60,5), expand = c(0.02,0.02)) +
+        scale_y_continuous(name="Survivorship", limits=c(0, 1), breaks = seq(0,1,0.2), expand = c(0.02,0.02)) +
+        geom_line(aes(linetype = program),size =1.1) +
+        theme_classic( base_size = 20)+
+  theme(legend.position = 'right', panel.background = element_blank(), legend.key = element_rect( colour = NA, fill = NA), panel.border = element_rect(colour = "black", fill=NA, size=.5)) +
+        guides(shape = "none", fill = FALSE) +
+  coord_fixed(ratio = 20)
+
+
+#Attempt to make a survival panel ~temp ...
+#I have to remove the 36C treatment
+panel_surv_data <- all.KM.estimates[!all.KM.estimates$temp==36,]
+panel_surv_data$temp <- as.factor(panel_surv_data$temp)
+
+
+s <- ggplot(data = panel_surv_data, aes(x=time, y= surv, colour = temp, group = interaction(temp, program))) + 
+        scale_colour_manual("Temperature", values = c("purple", "blue", "darkgreen", "darkorange1", "firebrick3","black")) +
+        scale_fill_manual("Temperature", values= c("purple", "blue", "darkgreen", "darkorange1", "firebrick3","black")) +
+        scale_linetype_manual("Program", values = c("solid", "longdash", "dotted"))+ 
+        scale_x_continuous(name="Days at treatment", limits = c (0, 75), breaks = seq(0,70,10), expand = c(0.02,0.02)) +
+        scale_y_continuous(name="Survivorship", limits=c(0, 1), breaks = seq(0,1,0.25), expand = c(0.02,0.02)) +
+        geom_ribbon(aes(ymax = surv + std.err, ymin = ifelse(surv-std.err <0, 0, surv-std.err), fill = temp), alpha = 0.3, color = NA)+
+        geom_line(aes(linetype = program),size =1.1) +
+        theme_classic( base_size = 14)+
+  theme(legend.position = 'none', panel.background = element_blank(), legend.key = element_rect( colour = NA, fill = NA), panel.border = element_rect(colour = "black", fill=NA, size=.5)) +
+        guides(shape = "none", fill = FALSE)
+
+s
+
+#Grid layout to isolate the effects
+plot.survivorship <- s + facet_grid(temp ~ .) + theme(strip.background = element_blank(), strip.text = element_blank()) #+ coord_fixed( ratio = 20)
+plot.survivorship
+output <- ggarrange(plot.survivorship, labels = c("A"), font.label = list(size =14))
+ggsave("plots/survivorplot_paneltemp.png", output, path = NULL, scale = 1, width = 3.5, height = 5.5, device = 'png', dpi = 600)
+
+
+#Grid layout to isolate the effects
+plot.survivorship <- s + facet_grid(program ~ .) #+ coord_fixed( ratio = 20)
+plot.survivorship
+output <- ggarrange(plot.survivorship, labels = c("A"), font.label = list(size =20))
+ggsave("plots/survivorplot_panelprogram.png", output, path = NULL, scale = 1, width = 6, height = 8, device = 'png', dpi = 500)
+
+
+############Alternative version that colors the data series based on program
+z <- ggplot(data = panel_surv_data, aes(x=time, y= surv, colour = program, group = interaction(temp, program))) + 
+        scale_colour_manual("Program", values = c("black", "darkcyan", "#4a3fa8")) +
+        scale_fill_manual("Program", values= c("black", "darkcyan", "#4a3fa8")) +
+        scale_linetype_manual("Program", values = c("solid", "longdash", "dotted"))+ 
+        scale_x_continuous(name="Days at Temperature", limits = c (0, 100), breaks = seq(0,100,20), expand = c(0.02,0.02)) +
+        scale_y_continuous(name="Porportion alive", limits=c(0, 1), breaks = seq(0,1,0.25), expand = c(0.02,0.02)) +
+        geom_ribbon(aes(ymax = surv + std.err, ymin = ifelse(surv-std.err <0, 0, surv-std.err), fill = program), alpha = 0.3, color = NA)+
+        geom_line(aes(linetype = program),size =1.1) +
+        theme_classic( base_size = 14)+
+  theme(legend.position = 'none', panel.background = element_blank(), legend.key = element_rect( colour = NA, fill = NA), panel.border = element_rect(colour = "black", fill=NA, size=.5)) +
+        guides(shape = "none", fill = FALSE)
+
+z
+
+#Grid layout to isolate the effects
+plot.survivorship <- z + facet_grid(temp ~ .)
+plot.survivorship
+output <- ggarrange(plot.survivorship, labels = c("c"), font.label = list(size =14))
+ggsave("plots/survivorplot_paneltemp2.png", output, path = NULL, scale = 1, width = 3.5, height = 5.5, device = 'png', dpi = 600)
+
+```
+
+```{r}
+#Look at statistical differences between temperature treatments across programs (aka 16C at constant, vs fluc(1) vs fluc(2))
+const_surv_data$program <- "constant"
+fluc9_surv_data$program <- "dtr 9"
+fluc12_surv_data$program <- "dtr 12"
+
+#Combine all data
+all_surv_data = rbind(const_surv_data, fluc9_surv_data, fluc12_surv_data)
+#Subset by temperature
+all_16_surv_data <- subset(all_surv_data, Treatment == 16)
+all_20_surv_data <- subset(all_surv_data, Treatment == 20)
+all_24_surv_data <- subset(all_surv_data, Treatment == 24)
+all_28_surv_data <- subset(all_surv_data, Treatment == 28)
+all_32_surv_data <- subset(all_surv_data, Treatment == 32)
+
+program.diff.Temp16 <- survdiff(Surv(Day,Event) ~ program, data = all_16_surv_data)
+program.diff.Temp16 #Chisq= 9.6  on 2 degrees of freedom, p= 0.00819 
+program.diff.Temp20 <- survdiff(Surv(Day,Event) ~ program, data = all_20_surv_data)
+program.diff.Temp20 #4.2  on 2 degrees of freedom, p= 0.122 
+program.diff.Temp24 <- survdiff(Surv(Day,Event) ~ program, data = all_24_surv_data)
+program.diff.Temp24 #9.1  on 2 degrees of freedom, p= 0.0107 
+program.diff.Temp28 <- survdiff(Surv(Day,Event) ~ program, data = all_28_surv_data)
+program.diff.Temp28 # 19.2  on 2 degrees of freedom, p= 6.91e-05 
+program.diff.Temp32 <- survdiff(Surv(Day,Event) ~ program, data = all_32_surv_data)
+program.diff.Temp32 # 13.8  on 2 degrees of freedom, p= 0.00103
+
+```
+
+
+
+
+GOMPERTZ CURVE FITS over the KM survival estimates
+1. combined data from each program / temperature
+2. fits over each experimental block for use in generating gamma point values to fit a Bayesian curve to
+
+```{r}
+#Generating gompertz curves over all of the data
+library(easynls)
+#Due to the way nls works I need to create a new dataframe with only two columns the first containing the age (day) and the second being the KM survival estimate
+#KM.df <- constant.surv.estimates.list[[1]] #time[1] = day; #surv[5] = estimate
+
+#Make a function that performs all the steps associated with the original data
+#input: 1)the list of the KM.estimates for each temperature within a program
+#       2)a list of vectors of staring conditions for each list element to use with the fit
+#output: a list of parameters for the gompertz function for each initial list element
+gomp.fit <- function(list, start.vector){
+    out.list <- vector(mode = "list", length = length(list))
+  for(i in 1:length(list)){
+    KM.df <- list[[i]]
+    trunc.df <- data.frame(day =KM.df$time,surv=KM.df$surv)
+    model.fit <- nlsfit(trunc.df, model = 10, start = start.vector[[i]])
+    out.list[[i]] <- model.fit$Parameters
+  }#end for loop
+  return(out.list)
+}#end of function
+
+constant.gomp.fits <- gomp.fit(constant.surv.estimates.list, list(c(1,0.05,-0.5), c(1,0.05,-0.5), c(1.13772,.08, -0.05), c(1.123,.13, -0.05),c(1.5,.43, -0.06), c(1,.07, -0.24)))
+
+dtr9.gomp.fits <- gomp.fit(f9.surv.estimates.list, list(c(1.25, 0.22, -0.035),c(1.4, .3, -0.035), c(1.1, .3, -0.04),c(2, .5, -0.04),c(1.2, .5, -0.04)))
+
+dtr12.gomp.fits <- gomp.fit(f12.surv.estimates.list, list( c(1.2, .3, -0.03),c(1.1, .3, -0.04),c(1.1, .3, -0.04),c(2, .5, -0.04),c(1.2, .5, -0.04)))
+
+#use the parameters from the fits to generate the functions
+#test.list <- out.list[[1]][3,1] -> How i extract the parameter values
+#the lists are in order by temperature; low to high
+#########Constant temps#########
+Gompz_16_func1 <- function(x) {constant.gomp.fits[[1]][1,1]*exp(-(constant.gomp.fits[[1]][2,1])*exp(-(constant.gomp.fits[[1]][3,1])*x))}
+Gompz_20_func1 <- function(x) {constant.gomp.fits[[2]][1,1]*exp(-(constant.gomp.fits[[2]][2,1])*exp(-(constant.gomp.fits[[2]][3,1])*x))}
+Gompz_24_func1 <- function(x) {constant.gomp.fits[[3]][1,1]*exp(-(constant.gomp.fits[[3]][2,1])*exp(-(constant.gomp.fits[[3]][3,1])*x))}
+Gompz_28_func1 <- function(x) {constant.gomp.fits[[4]][1,1]*exp(-(constant.gomp.fits[[4]][2,1])*exp(-(constant.gomp.fits[[4]][3,1])*x))}
+Gompz_32_func1 <- function(x) {constant.gomp.fits[[5]][1,1]*exp(-(constant.gomp.fits[[5]][2,1])*exp(-(constant.gomp.fits[[5]][3,1])*x))}
+
+#########DTR 9 ############
+gomp_fluc16_func <- function(x) {dtr9.gomp.fits[[1]][1,1]*exp(-(dtr9.gomp.fits[[1]][2,1])*exp(-(dtr9.gomp.fits[[1]][3,1])*x))}
+gomp_fluc20_func <- function(x) {dtr9.gomp.fits[[2]][1,1]*exp(-(dtr9.gomp.fits[[2]][2,1])*exp(-(dtr9.gomp.fits[[2]][3,1])*x))}
+gomp_fluc24_func <- function(x) {dtr9.gomp.fits[[3]][1,1]*exp(-(dtr9.gomp.fits[[3]][2,1])*exp(-(dtr9.gomp.fits[[3]][3,1])*x))}
+gomp_fluc28_func <- function(x) {dtr9.gomp.fits[[4]][1,1]*exp(-(dtr9.gomp.fits[[4]][2,1])*exp(-(dtr9.gomp.fits[[4]][3,1])*x))}
+gomp_fluc32_func <- function(x) {dtr9.gomp.fits[[5]][1,1]*exp(-(dtr9.gomp.fits[[5]][2,1])*exp(-(dtr9.gomp.fits[[5]][3,1])*x))}
+
+#########DTR 12############
+gomp_dtr12_fluc16_func <- function(x) {dtr12.gomp.fits[[1]][1,1]*exp(-(dtr12.gomp.fits[[1]][2,1])*exp(-(dtr12.gomp.fits[[1]][3,1])*x))}
+gomp_dtr12_fluc20_func <- function(x) {dtr12.gomp.fits[[2]][1,1]*exp(-(dtr12.gomp.fits[[2]][2,1])*exp(-(dtr12.gomp.fits[[2]][3,1])*x))}
+gomp_dtr12_fluc24_func <- function(x) {dtr12.gomp.fits[[3]][1,1]*exp(-(dtr12.gomp.fits[[3]][2,1])*exp(-(dtr12.gomp.fits[[3]][3,1])*x))}
+gomp_dtr12_fluc28_func <- function(x) {dtr12.gomp.fits[[4]][1,1]*exp(-(dtr12.gomp.fits[[4]][2,1])*exp(-(dtr12.gomp.fits[[4]][3,1])*x))}
+gomp_dtr12_fluc32_func <- function(x) {dtr12.gomp.fits[[5]][1,1]*exp(-(dtr12.gomp.fits[[5]][2,1])*exp(-(dtr12.gomp.fits[[5]][3,1])*x))}
+```
+
+#Visualization 2 - including the gompertz estimates
+
+##Ploting the gompertz functions over the KM_estimates for the fluctuation program
+```{r}
+#Add plot of survival with only the gompertz functions
+ggplot( data.frame(x = c(0, 70)), aes(Temp = x))+
+scale_x_continuous(name="Days at temperature", limits = c (0, 70), breaks = seq(0,70,5), expand = c(0.02,0.02)) +
+        scale_y_continuous(name="Porportion alive", limits=c(0, 1), breaks = seq(0,1,0.1), expand = c(0.02,0.02)) +
+  theme_classic( base_size = 20) +
+        theme(legend.position = 'right', panel.background = element_blank(), legend.key = element_rect( colour = NA, fill = NA), panel.border = element_rect(colour = "black", fill=NA, size=.5)) +
+        guides(shape = "none", fill = FALSE) +
+      stat_function(fun = Gompz_16_func1, colour = "purple", linetype = "solid", size = 1.2)+
+      stat_function(fun = Gompz_20_func1, colour = "blue", linetype = "solid", size = 1.2)+
+      stat_function(fun = Gompz_24_func1, colour = "darkgreen", linetype = "solid", size = 1.2)+
+      stat_function(fun = Gompz_28_func1, colour = "darkorange1", linetype = "solid", size = 1.2)+
+      stat_function(fun = Gompz_32_func1, colour = "firebrick3", linetype = "solid", size = 1.2)+
+      stat_function(fun = gomp_fluc16_func, colour = "purple", linetype = "dashed", size = 1.2) +
+      stat_function(fun = gomp_fluc20_func, colour = "blue", linetype = "dashed", size = 1.2) +
+      stat_function(fun = gomp_fluc24_func, colour = "darkgreen", linetype = "dashed", size = 1.2) +
+      stat_function(fun = gomp_fluc28_func, colour = "darkorange1", linetype = "dashed", size = 1.2) +
+      stat_function(fun = gomp_fluc32_func, colour = "firebrick3", linetype = "dashed", size = 1.2) +
+      stat_function(fun = gomp_dtr12_fluc16_func, colour = "purple", linetype = "dotted", size = 1.2) +
+      stat_function(fun = gomp_dtr12_fluc20_func, colour = "blue", linetype = "dotted", size = 1.2) +
+      stat_function(fun = gomp_dtr12_fluc24_func, colour = "darkgreen", linetype = "dotted", size = 1.2) +
+      stat_function(fun = gomp_dtr12_fluc28_func, colour = "darkorange1", linetype = "dotted", size = 1.2) +
+      stat_function(fun = gomp_dtr12_fluc32_func, colour = "firebrick3", linetype = "dotted", size = 1.2) 
+
+```
+
+##Generate TEMPERATURE | BLOCK combos of KM estimates and gompertz functions
+Will use the outputs for generating gamma point values -> Bayesian inference
+```{r}
+#####Modify my prior function to also subset by block in addition to temperature
+
+#Function to extract the KM_estimates for each program /temperature/block into a list of dataframes
+#input: df of all survival data of the same program treatment
+#output: list -> for each temperature|block grouping a list index of the KM.estimates for that temp
+
+extract.KM.estimates2 <- function(df){
+  out.list <- vector(mode = "list") #unspecified length
+  temps <- as.numeric(levels(df$Treatment))
+  blocks <- as.numeric(levels(df$Block))
+  index = 0
+  #loop through each block in the full df
+  for(k in 1:length(blocks)){ #start k for loop
+    
+  #loop through each treatment in the full df to generate KM.estimates for each temp
+    for(i in 1:length(temps)){#start i for loop
+      sub.dat <- subset(df, Treatment == temps[i] & Block ==blocks[k], select = c(Event,Day))
+      if(nrow(sub.dat)>0){ #makes sure the specific temp|block combo exists, if not loops through
+      index <- index +1
+      sub.fit <- survfit(Surv(Day,Event)~1, data = sub.dat)
+      new.df <- fortify(sub.fit)
+      new.df$temp <- temps[i]
+      new.df$block <- blocks[k]
+      n.start <- sub.fit$n
+      new.df <- rbind(data.frame(time =0, n.risk = n.start, n.event=0, n.censor= 0, surv= 1, std.err = 0, upper =1, lower =1,temp = temps[i],block = blocks[k]), new.df)
+      out.list[[index]] <- new.df #index to be cumulative of the number of times sub.dat has data
+      } #end if statement
+      }#end i for loop
+  } #end k for loop
+  return (out.list)
+}#end function
+
+#Use function to extract KM estimates for each block|temp combo across each of the datasets
+constant.block.surv.estimates.list <- extract.KM.estimates2(const_surv_data)
+dtr9.block.surv.estimates.list <- extract.KM.estimates2(fluc9_surv_data)
+dtr12.block.surv.estimates.list <- extract.KM.estimates2(fluc12_surv_data)
+
+#Combine all dataframes together with program and block and temp listed with prior function
+compiled.block.c.surv.est <- combine.KM.estimates(constant.block.surv.estimates.list)
+compiled.block.c.surv.est$program <- "constant"
+compiled.block.f9.surv.est<- combine.KM.estimates(dtr9.block.surv.estimates.list)
+compiled.block.f9.surv.est$program <- "+/- 4.5"
+compiled.block.f12.surv.est<- combine.KM.estimates(dtr12.block.surv.estimates.list)
+compiled.block.f12.surv.est$program <- "+/- 6"
+
+#Export the files in case I want these later on
+#write.csv(compiled.block.c.surv.est, "data/constant.KM.estimates.csv", row.names = F)
+#write.csv(compiled.block.f9.surv.est, "data/dtr9.KM.estimates.csv", row.names = F)
+#write.csv(compiled.block.f12.surv.est, "data/dtr12.KM.estimates.csv", row.names = F)
+
+constant.block.gomp.fits <- gomp.fit(constant.block.surv.estimates.list, list(c(1,.05, -0.05),c(1,.05, -0.05), c(1,.05, -0.05),c(1,.05, -0.05),c(1,.07, -0.24),c(1,.07, -0.24), c(1,.07, -0.24),c(1,.07, -0.24),c(1,.07, -0.24),c(1,.07, -0.24),c(1.3,.1, -0.05),c(1,.05, -0.05),c(1,.07, -0.24)))
+
+dtr9.block.gomp.fits <- gomp.fit(dtr9.block.surv.estimates.list, list(c(1,.05, -0.05),c(1,.05, -0.1),c(1,.05, -0.1),c(1,.05, -0.1),c(2,1, -0.1),c(1,.05, -0.05),c(1,.05, -0.1),c(1,.05, -0.1),c(1,.05, -0.1),c(1,.05, -0.1)))
+
+dtr12.block.gomp.fits <- gomp.fit(dtr12.block.surv.estimates.list, list(c(1,.05, -0.05),c(1,.05, -0.1), c(1,.05, -0.1), c(1,.05, -0.1), c(2,1, -0.1),c(1,.05, -0.05),c(1,.05, -0.1),c(1,.05, -0.1),c(1,.05, -0.1),c(1,.05, -0.1)))
+
+#Generating the equation function for each set of parameter values
+#use the parameters from the fits to generate the functions
+#test.list <- out.list[[1]][3,1] -> How i extract the parameter values
+#verify the order of the list in terms of block and temp
+#16,20,24,28,32,36,16,20,24,28, 28   , 32,36
+#########Constant temps#########
+gomp.const.16.b1_func <- function(x){constant.block.gomp.fits[[1]][1,1]*exp(-(constant.block.gomp.fits[[1]][2,1])*exp(-(constant.block.gomp.fits[[1]][3,1])*x))}
+gomp.const.20.b1_func<-function(x){constant.block.gomp.fits[[2]][1,1]*exp(-(constant.block.gomp.fits[[2]][2,1])*exp(-(constant.block.gomp.fits[[2]][3,1])*x))}
+gomp.const.24.b1_func<-function(x){constant.block.gomp.fits[[3]][1,1]*exp(-(constant.block.gomp.fits[[3]][2,1])*exp(-(constant.block.gomp.fits[[3]][3,1])*x))}
+gomp.const.28.b1_func<-function(x){constant.block.gomp.fits[[4]][1,1]*exp(-(constant.block.gomp.fits[[4]][2,1])*exp(-(constant.block.gomp.fits[[4]][3,1])*x))}
+gomp.const.32.b1_func<-function(x){constant.block.gomp.fits[[5]][1,1]*exp(-(constant.block.gomp.fits[[5]][2,1])*exp(-(constant.block.gomp.fits[[5]][3,1])*x))}
+gomp.const.36.b1_func<-function(x){constant.block.gomp.fits[[6]][1,1]*exp(-(constant.block.gomp.fits[[6]][2,1])*exp(-(constant.block.gomp.fits[[6]][3,1])*x))}
+gomp.const.16.b2_func<-function(x){constant.block.gomp.fits[[7]][1,1]*exp(-(constant.block.gomp.fits[[7]][2,1])*exp(-(constant.block.gomp.fits[[7]][3,1])*x))}
+gomp.const.20.b2_func<-function(x){constant.block.gomp.fits[[8]][1,1]*exp(-(constant.block.gomp.fits[[8]][2,1])*exp(-(constant.block.gomp.fits[[8]][3,1])*x))}
+gomp.const.24.b2_func<-function(x){constant.block.gomp.fits[[9]][1,1]*exp(-(constant.block.gomp.fits[[9]][2,1])*exp(-(constant.block.gomp.fits[[9]][3,1])*x))}
+gomp.const.28.b2_func<-function(x){constant.block.gomp.fits[[10]][1,1]*exp(-(constant.block.gomp.fits[[10]][2,1])*exp(-(constant.block.gomp.fits[[10]][3,1])*x))}
+gomp.const.28.b3_func<-function(x){constant.block.gomp.fits[[11]][1,1]*exp(-(constant.block.gomp.fits[[11]][2,1])*exp(-(constant.block.gomp.fits[[11]][3,1])*x))}
+gomp.const.32.b2_func<-function(x){constant.block.gomp.fits[[12]][1,1]*exp(-(constant.block.gomp.fits[[12]][2,1])*exp(-(constant.block.gomp.fits[[12]][3,1])*x))}
+gomp.const.36.b2_func<-function(x){constant.block.gomp.fits[[13]][1,1]*exp(-(constant.block.gomp.fits[[13]][2,1])*exp(-(constant.block.gomp.fits[[13]][3,1])*x))}
+
+#########DTR 9 ############
+gomp.dtr9.16.b1_func<-function(x){dtr9.block.gomp.fits[[1]][1,1]*exp(-(dtr9.block.gomp.fits[[1]][2,1])*exp(-(dtr9.block.gomp.fits[[1]][3,1])*x))}
+gomp.dtr9.20.b1_func<-function(x){dtr9.block.gomp.fits[[2]][1,1]*exp(-(dtr9.block.gomp.fits[[2]][2,1])*exp(-(dtr9.block.gomp.fits[[2]][3,1])*x))}
+gomp.dtr9.24.b1_func<-function(x){dtr9.block.gomp.fits[[3]][1,1]*exp(-(dtr9.block.gomp.fits[[3]][2,1])*exp(-(dtr9.block.gomp.fits[[3]][3,1])*x))}
+gomp.dtr9.28.b1_func<-function(x){dtr9.block.gomp.fits[[4]][1,1]*exp(-(dtr9.block.gomp.fits[[4]][2,1])*exp(-(dtr9.block.gomp.fits[[4]][3,1])*x))}
+gomp.dtr9.32.b1_func<-function(x){dtr9.block.gomp.fits[[5]][1,1]*exp(-(dtr9.block.gomp.fits[[5]][2,1])*exp(-(dtr9.block.gomp.fits[[5]][3,1])*x))}
+
+gomp.dtr9.16.b2_func<-function(x){dtr9.block.gomp.fits[[6]][1,1]*exp(-(dtr9.block.gomp.fits[[6]][2,1])*exp(-(dtr9.block.gomp.fits[[6]][3,1])*x))}
+gomp.dtr9.20.b2_func<-function(x){dtr9.block.gomp.fits[[7]][1,1]*exp(-(dtr9.block.gomp.fits[[7]][2,1])*exp(-(dtr9.block.gomp.fits[[7]][3,1])*x))}
+gomp.dtr9.24.b2_func<-function(x){dtr9.block.gomp.fits[[8]][1,1]*exp(-(dtr9.block.gomp.fits[[8]][2,1])*exp(-(dtr9.block.gomp.fits[[8]][3,1])*x))}
+gomp.dtr9.28.b2_func<-function(x){dtr9.block.gomp.fits[[9]][1,1]*exp(-(dtr9.block.gomp.fits[[9]][2,1])*exp(-(dtr9.block.gomp.fits[[9]][3,1])*x))}
+gomp.dtr9.32.b2_func<-function(x){dtr9.block.gomp.fits[[10]][1,1]*exp(-(dtr9.block.gomp.fits[[10]][2,1])*exp(-(dtr9.block.gomp.fits[[10]][3,1])*x))}
+
+#########DTR 12############
+gomp.dtr12.16.b1_func<-function(x){dtr12.block.gomp.fits[[1]][1,1]*exp(-(dtr12.block.gomp.fits[[1]][2,1])*exp(-(dtr12.block.gomp.fits[[1]][3,1])*x))}
+gomp.dtr12.20.b1_func<-function(x){dtr12.block.gomp.fits[[2]][1,1]*exp(-(dtr12.block.gomp.fits[[2]][2,1])*exp(-(dtr12.block.gomp.fits[[2]][3,1])*x))}
+gomp.dtr12.24.b1_func<-function(x){dtr12.block.gomp.fits[[3]][1,1]*exp(-(dtr12.block.gomp.fits[[3]][2,1])*exp(-(dtr12.block.gomp.fits[[3]][3,1])*x))}
+gomp.dtr12.28.b1_func<-function(x){dtr12.block.gomp.fits[[4]][1,1]*exp(-(dtr12.block.gomp.fits[[4]][2,1])*exp(-(dtr12.block.gomp.fits[[4]][3,1])*x))}
+gomp.dtr12.32.b1_func<-function(x){dtr12.block.gomp.fits[[5]][1,1]*exp(-(dtr12.block.gomp.fits[[5]][2,1])*exp(-(dtr12.block.gomp.fits[[5]][3,1])*x))}
+
+gomp.dtr12.16.b2_func<-function(x){dtr12.block.gomp.fits[[6]][1,1]*exp(-(dtr12.block.gomp.fits[[6]][2,1])*exp(-(dtr12.block.gomp.fits[[6]][3,1])*x))}
+gomp.dtr12.20.b2_func<-function(x){dtr12.block.gomp.fits[[7]][1,1]*exp(-(dtr12.block.gomp.fits[[7]][2,1])*exp(-(dtr12.block.gomp.fits[[7]][3,1])*x))}
+gomp.dtr12.24.b2_func<-function(x){dtr12.block.gomp.fits[[8]][1,1]*exp(-(dtr12.block.gomp.fits[[8]][2,1])*exp(-(dtr12.block.gomp.fits[[8]][3,1])*x))}
+gomp.dtr12.28.b2_func<-function(x){dtr12.block.gomp.fits[[9]][1,1]*exp(-(dtr12.block.gomp.fits[[9]][2,1])*exp(-(dtr12.block.gomp.fits[[9]][3,1])*x))}
+gomp.dtr12.32.b2_func<-function(x){dtr12.block.gomp.fits[[10]][1,1]*exp(-(dtr12.block.gomp.fits[[10]][2,1])*exp(-(dtr12.block.gomp.fits[[10]][3,1])*x))}
+```
+
+Generate gamma estimates from the gompertz functions
+```{r}
+#NOTE: R file 00_TraitFit_Functions.R needs to be run prior
+#Load the PDR curve
+#Load in dataframe with EIP|temp values
+load("saved posteriors/temps.Rdata")
+load("saved posteriors/PDR_briere_withT_uniform.Rdata")
+PDR.c.briere_T.summary <- trait.trajs.briere(PDR.c.briere_T, Temp.xs,summary= TRUE)
+#Extract the PDR values associated with each temperature (use mean or median?)#mean
+EIP.50value.16c <-1/PDR.c.briere_T.summary[PDR.c.briere_T.summary$temp==16,][1,2] 
+EIP.50value.20c <-1/PDR.c.briere_T.summary[PDR.c.briere_T.summary$temp==20,][1,2] 
+EIP.50value.24c <-1/PDR.c.briere_T.summary[PDR.c.briere_T.summary$temp==24,][1,2] 
+EIP.50value.28c <-1/PDR.c.briere_T.summary[PDR.c.briere_T.summary$temp==28,][1,2] 
+EIP.50value.32c <-1/PDR.c.briere_T.summary[PDR.c.briere_T.summary$temp==32,][1,2] 
+EIP.50value.36c <-1/PDR.c.briere_T.summary[PDR.c.briere_T.summary$temp==36,][1,2] 
+
+EIP50.tpc.values <- c(EIP.50value.16c,EIP.50value.20c,EIP.50value.24c,EIP.50value.28c, EIP.50value.32c,EIP.50value.36c)
+
+##Evaluate the corresponding function for gamma at EIPx
+###constant temp dataframe
+gamma_T16_B1 <- gomp.const.16.b1_func(EIP50.tpc.values[1])
+gamma_T16_B2 <- gomp.const.16.b2_func(EIP50.tpc.values[1])
+gamma_T20_B1 <- gomp.const.20.b1_func(EIP50.tpc.values[2])
+gamma_T20_B2 <- gomp.const.20.b2_func(EIP50.tpc.values[2])
+gamma_T24_B1 <- gomp.const.24.b1_func(EIP50.tpc.values[3])
+gamma_T24_B2 <- gomp.const.24.b2_func(EIP50.tpc.values[3])
+gamma_T28_B1 <- gomp.const.28.b1_func(EIP50.tpc.values[4])
+gamma_T28_B2 <- gomp.const.28.b2_func(EIP50.tpc.values[4])
+gamma_T28_B3 <- gomp.const.28.b3_func(EIP50.tpc.values[4])
+gamma_T32_B1 <- gomp.const.32.b1_func(EIP50.tpc.values[5])
+gamma_T32_B2 <- gomp.const.32.b2_func(EIP50.tpc.values[5])
+gamma_T36_B1 <- gomp.const.36.b1_func(EIP50.tpc.values[6])
+gamma_T36_B2 <- gomp.const.36.b2_func(EIP50.tpc.values[6])
+
+#Place values in a df with temp values
+gamma.values <- c(gamma_T16_B1,gamma_T16_B2,gamma_T20_B1, gamma_T20_B2, gamma_T24_B1, gamma_T24_B2, gamma_T28_B1, gamma_T28_B2, gamma_T28_B3, gamma_T32_B1, gamma_T32_B2, gamma_T36_B1, gamma_T36_B2)
+temp.values <- c(16,16,20,20,24,24,28,28,28,32,32,36,36)
+
+constant.gamma.df <- data.frame(gamma = gamma.values, temp = temp.values)
+#Visualize
+plot(constant.gamma.df$temp, constant.gamma.df$gamma, main = "Constant")
+#write.csv(constant.gamma.df, "data/constant.gamma.values.csv", row.names = FALSE)
+
+##################dtr9 data
+##Evaluate the corresponding function for gamma at EIPx
+###constant temp dataframe
+gamma_f9_T16_B1 <- gomp.dtr9.16.b1_func(EIP50.tpc.values[1])
+gamma_f9_T16_B2 <- gomp.dtr9.16.b2_func(EIP50.tpc.values[1])
+gamma_f9_T20_B1 <- gomp.dtr9.20.b1_func(EIP50.tpc.values[2])
+gamma_f9_T20_B2 <- gomp.dtr9.20.b2_func(EIP50.tpc.values[2])
+gamma_f9_T24_B1 <- gomp.dtr9.24.b1_func(EIP50.tpc.values[3])
+gamma_f9_T24_B2 <- gomp.dtr9.24.b2_func(EIP50.tpc.values[3])
+gamma_f9_T28_B1 <- gomp.dtr9.28.b1_func(EIP50.tpc.values[4])
+gamma_f9_T28_B2 <- gomp.dtr9.28.b2_func(EIP50.tpc.values[4])
+gamma_f9_T32_B1 <- gomp.dtr9.32.b1_func(EIP50.tpc.values[5])
+gamma_f9_T32_B2 <- gomp.dtr9.32.b2_func(EIP50.tpc.values[5])
+#
+#Place values in a df with temp values
+gamma.values2 <- c(gamma_f9_T16_B1,gamma_f9_T16_B2,gamma_f9_T20_B1, gamma_f9_T20_B2, gamma_f9_T24_B1, gamma_f9_T24_B2, gamma_f9_T28_B1, gamma_f9_T28_B2, gamma_f9_T32_B1, gamma_f9_T32_B2)
+temp.values2 <- c(16,16,20,20,24,24,28,28,32,32)
+dtr9.gamma.df <- data.frame(gamma = gamma.values2, temp = temp.values2)
+#Visualize
+plot(dtr9.gamma.df$temp, dtr9.gamma.df$gamma, main = "dtr9")
+#write.csv(dtr9.gamma.df, "data/dtr9.gamma.values.csv", row.names = FALSE)
+
+##################dtr12 data
+##Evaluate the corresponding function for gamma at EIPx
+###constant temp dataframe
+gamma_f12_T16_B1 <- gomp.dtr12.16.b1_func(EIP50.tpc.values[1])
+gamma_f12_T16_B2 <- gomp.dtr12.16.b2_func(EIP50.tpc.values[1])
+gamma_f12_T20_B1 <- gomp.dtr12.20.b1_func(EIP50.tpc.values[2])
+gamma_f12_T20_B2 <- gomp.dtr12.20.b2_func(EIP50.tpc.values[2])
+gamma_f12_T24_B1 <- gomp.dtr12.24.b1_func(EIP50.tpc.values[3])
+gamma_f12_T24_B2 <- gomp.dtr12.24.b2_func(EIP50.tpc.values[3])
+gamma_f12_T28_B1 <- gomp.dtr12.28.b1_func(EIP50.tpc.values[4])
+gamma_f12_T28_B2 <- gomp.dtr12.28.b2_func(EIP50.tpc.values[4])
+gamma_f12_T32_B1 <- gomp.dtr12.32.b1_func(EIP50.tpc.values[5])
+gamma_f12_T32_B2 <- gomp.dtr12.32.b2_func(EIP50.tpc.values[5])
+#
+#Place values in a df with temp values
+gamma.values3 <- c(gamma_f12_T16_B1,gamma_f12_T16_B2,gamma_f12_T20_B1, gamma_f12_T20_B2, gamma_f12_T24_B1, gamma_f12_T24_B2, gamma_f12_T28_B1, gamma_f12_T28_B2, gamma_f12_T32_B1, gamma_f12_T32_B2)
+temp.values3 <- c(16,16,20,20,24,24,28,28,32,32)
+dtr12.gamma.df <- data.frame(gamma = gamma.values3, temp = temp.values3)
+#Visualize
+plot(dtr12.gamma.df$temp, dtr12.gamma.df$gamma, main = "dtr12")
+#write.csv(dtr12.gamma.df, "data/dtr12.gamma.values.csv", row.names = FALSE)
+
+
+##############################SI FIGURE 4##############################3
+##Representative block survivorship with gompertz and EIP50 values
+##Taken from block 1
+#make a 6 panel plot
+#panel a
+#Need to have an outfile that evaluates each function over the desired range for plotting
+
+ 
+{pdf("plots/SI_FIG4_gammacalc.pdf", width = 8, height = 10)
+par(mar=c(5,6,5,1))
+par(mfrow = c(3,2))
+plot(constant.block.surv.estimates.list[[1]]$surv ~ constant.block.surv.estimates.list[[1]]$time,xlim = c(0,100), ylim = c(0,1), ylab = "Porportion alive", xlab = "Time (days at temperature)",main= expression(paste("16",degree,"C")), type ='n', xaxs="i", cex.lab = 1.4, cex.axis = 1.4, cex.main = 1.6)
+lines(constant.block.surv.estimates.list[[1]]$surv ~ constant.block.surv.estimates.list[[1]]$time, col = "black", lwd = 2)
+lines(gomp.const.16.b1_func(seq(0,100,1))~seq(0,100,1), col = "black", lwd=2, lty = 5)
+lines(dtr9.block.surv.estimates.list[[1]]$surv ~ dtr9.block.surv.estimates.list[[1]]$time, col = "darkcyan", lwd =2)
+lines(gomp.dtr9.16.b1_func(seq(0,100,1))~seq(0,100,1), col = "darkcyan", lwd =2, lty=5)
+lines(dtr12.block.surv.estimates.list[[1]]$surv ~ dtr12.block.surv.estimates.list[[1]]$time, col = "#4a3fa8", lwd =2)
+lines(gomp.dtr12.16.b1_func(seq(0,100,1))~seq(0,100,1), col = "#4a3fa8", lwd =2, lty=5)
+abline(v= 1/PDR.c.briere_T.summary[PDR.c.briere_T.summary$temp==16,][1,2], col = "black", lwd=1.5, lty=3)
+text(48, 0, expression(paste("EIP: 31.7 days")), cex = 1.3)
+segments(0, gomp.const.16.b1_func(EIP50.tpc.values[1]),1/PDR.c.briere_T.summary[PDR.c.briere_T.summary$temp==16,][1,2],gomp.const.16.b1_func(EIP50.tpc.values[1]), col ="black", lty = 3,lwd = 1.5)
+segments(0, gomp.dtr9.16.b1_func(EIP50.tpc.values[1]),1/PDR.c.briere_T.summary[PDR.c.briere_T.summary$temp==16,][1,2],gomp.dtr9.16.b1_func(EIP50.tpc.values[1]), col ="darkcyan", lty = 3,lwd = 1.5)
+segments(0, gomp.dtr12.16.b1_func(EIP50.tpc.values[1]),1/PDR.c.briere_T.summary[PDR.c.briere_T.summary$temp==16,][1,2],gomp.dtr12.16.b1_func(EIP50.tpc.values[1]), col ="#4a3fa8", lty = 3,lwd = 1.5)
+mtext("a", side = 3, at = -10, cex = 1.8, line = 2)
+text(86, 0.95, expression(paste("gamma: 0.77")), col ="#4a3fa8", cex = 1.3)
+text(86, 0.87, expression(paste("gamma: 0.64")), cex = 1.3)
+text(86, 0.79, expression(paste("gamma: 0.52")), col ="darkcyan", cex = 1.3)
+legend(70,0.76, legend = c("data", "gompertz", "value"),lwd = 2, lty = c(1,2,3), col = c("black"), bty = 'n')
+
+#########20 degrees c
+plot(constant.block.surv.estimates.list[[2]]$surv ~ constant.block.surv.estimates.list[[2]]$time,xlim = c(0,100), ylim = c(0,1), ylab = "Porportion alive", xlab = "Time (days at temperature)",main= expression(paste("20",degree,"C")), type ='n', xaxs="i", cex.lab = 1.4, cex.axis = 1.4, cex.main = 1.6)
+lines(constant.block.surv.estimates.list[[2]]$surv ~ constant.block.surv.estimates.list[[2]]$time, col = "black", lwd = 2)
+lines(gomp.const.20.b1_func(seq(0,100,1))~seq(0,100,1), col = "black", lwd=2, lty = 5)
+lines(dtr9.block.surv.estimates.list[[2]]$surv ~ dtr9.block.surv.estimates.list[[2]]$time, col = "darkcyan", lwd =2)
+lines(gomp.dtr9.20.b1_func(seq(0,100,1))~seq(0,100,1), col = "darkcyan", lwd =2, lty=5)
+lines(dtr12.block.surv.estimates.list[[2]]$surv ~ dtr12.block.surv.estimates.list[[2]]$time, col = "#4a3fa8", lwd =2)
+lines(gomp.dtr12.20.b1_func(seq(0,100,1))~seq(0,100,1), col = "#4a3fa8", lwd =2, lty=5)
+abline(v= 1/PDR.c.briere_T.summary[PDR.c.briere_T.summary$temp==20,][1,2], col = "black",  lty=3,lwd=1.5)
+text(34, 0, expression(paste("EIP: 17.7 days")), cex = 1.3)
+segments(0, gomp.const.20.b1_func(EIP50.tpc.values[2]),1/PDR.c.briere_T.summary[PDR.c.briere_T.summary$temp==20,][1,2],gomp.const.20.b1_func(EIP50.tpc.values[2]), col ="black", lty = 3,lwd = 1.5)
+segments(0, gomp.dtr9.20.b1_func(EIP50.tpc.values[2]),1/PDR.c.briere_T.summary[PDR.c.briere_T.summary$temp==20,][1,2],gomp.dtr9.20.b1_func(EIP50.tpc.values[2]), col ="darkcyan", lty = 3,lwd = 1.5)
+segments(0, gomp.dtr12.20.b1_func(EIP50.tpc.values[2]),1/PDR.c.briere_T.summary[PDR.c.briere_T.summary$temp==20,][1,2],gomp.dtr12.20.b1_func(EIP50.tpc.values[2]), col ="#4a3fa8", lty = 3,lwd = 1.5)
+mtext("b", side = 3, at = -10, cex = 1.8, line = 2)
+text(86, 0.95, expression(paste("gamma: 0.95")), col = "black", cex = 1.3)
+text(86, 0.87, expression(paste("gamma: 0.89")), col ="#4a3fa8", cex = 1.3)
+text(86, 0.79, expression(paste("gamma: 0.77")), col ="darkcyan", cex = 1.3)
+legend(70,0.76, legend = c("data", "gompertz", "value"),lwd = 2, lty = c(1,2,3), col = c("black"), bty = 'n')
+
+#####24 C
+plot(constant.block.surv.estimates.list[[3]]$surv ~ constant.block.surv.estimates.list[[3]]$time,xlim = c(0,80), ylim = c(0,1), ylab = "Porportion alive", xlab = "Time (days at temperature)",main= expression(paste("24",degree,"C")), type ='n', xaxs="i", cex.lab = 1.4, cex.axis = 1.4, cex.main = 1.6)
+lines(constant.block.surv.estimates.list[[3]]$surv ~ constant.block.surv.estimates.list[[3]]$time, col = "black", lwd = 2)
+lines(gomp.const.24.b1_func(seq(0,100,1))~seq(0,100,1), col = "black", lwd=2, lty = 5)
+lines(dtr9.block.surv.estimates.list[[3]]$surv ~ dtr9.block.surv.estimates.list[[3]]$time, col = "darkcyan", lwd =2)
+lines(gomp.dtr9.24.b1_func(seq(0,100,1))~seq(0,100,1), col = "darkcyan", lwd =2, lty=5)
+lines(dtr12.block.surv.estimates.list[[3]]$surv ~ dtr12.block.surv.estimates.list[[3]]$time, col = "#4a3fa8", lwd =2)
+lines(gomp.dtr12.24.b1_func(seq(0,100,1))~seq(0,100,1), col = "#4a3fa8", lwd =2, lty=5)
+abline(v= 1/PDR.c.briere_T.summary[PDR.c.briere_T.summary$temp==24,][1,2], col = "black",  lty=3,lwd=1.5)
+text(25, 0, expression(paste("EIP: 11.9 days")), cex = 1.3)
+segments(0, gomp.const.24.b1_func(EIP50.tpc.values[3]),1/PDR.c.briere_T.summary[PDR.c.briere_T.summary$temp==24,][1,2],gomp.const.24.b1_func(EIP50.tpc.values[3]), col ="black", lty = 3,lwd = 1.5)
+segments(0, gomp.dtr9.24.b1_func(EIP50.tpc.values[3]),1/PDR.c.briere_T.summary[PDR.c.briere_T.summary$temp==24,][1,2],gomp.dtr9.24.b1_func(EIP50.tpc.values[3]), col ="darkcyan", lty = 3,lwd = 1.5)
+segments(0, gomp.dtr12.24.b1_func(EIP50.tpc.values[3]),1/PDR.c.briere_T.summary[PDR.c.briere_T.summary$temp==24,][1,2],gomp.dtr12.24.b1_func(EIP50.tpc.values[3]), col ="#4a3fa8", lty = 3,lwd = 1.5)
+mtext("c", side = 3, at = -10, cex = 1.8, line = 2)
+text(69, 0.95, expression(paste("gamma: 0.99")), col = "black", cex = 1.3)
+text(69, 0.87, expression(paste("gamma: 0.86")), col ="#4a3fa8", cex = 1.3)
+text(69, 0.79, expression(paste("gamma: 0.85")), col ="darkcyan", cex = 1.3)
+legend(56,0.76, legend = c("data", "gompertz", "value"),lwd = 2, lty = c(1,2,3), col = c("black"), bty = 'n')
+
+
+####28C
+plot(constant.block.surv.estimates.list[[4]]$surv ~ constant.block.surv.estimates.list[[4]]$time,xlim = c(0,60), ylim = c(0,1), ylab = "Porportion alive", xlab = "Time (days at temperature)",main= expression(paste("28",degree,"C")), type ='n', xaxs="i", cex.lab = 1.4, cex.axis = 1.4, cex.main = 1.6)
+lines(constant.block.surv.estimates.list[[4]]$surv ~ constant.block.surv.estimates.list[[4]]$time, col = "black", lwd = 2)
+lines(gomp.const.28.b1_func(seq(0,100,1))~seq(0,100,1), col = "black", lwd=2, lty = 5)
+lines(dtr9.block.surv.estimates.list[[4]]$surv ~ dtr9.block.surv.estimates.list[[4]]$time, col = "darkcyan", lwd =2)
+lines(gomp.dtr9.28.b1_func(seq(0,100,1))~seq(0,100,1), col = "darkcyan", lwd =2, lty=5)
+lines(dtr12.block.surv.estimates.list[[4]]$surv ~ dtr12.block.surv.estimates.list[[4]]$time, col = "#4a3fa8", lwd =2)
+lines(gomp.dtr12.28.b1_func(seq(0,100,1))~seq(0,100,1), col = "#4a3fa8", lwd =2, lty=5)
+abline(v= 1/PDR.c.briere_T.summary[PDR.c.briere_T.summary$temp==28,][1,2], col = "black",  lty=3,lwd=1.5)
+text(18, 0, expression(paste("EIP: 9.1 days")), cex = 1.3)
+segments(0, gomp.const.28.b1_func(EIP50.tpc.values[4]),1/PDR.c.briere_T.summary[PDR.c.briere_T.summary$temp==28,][1,2],gomp.const.28.b1_func(EIP50.tpc.values[4]), col ="black", lty = 3,lwd = 1.5)
+segments(0, gomp.dtr9.28.b1_func(EIP50.tpc.values[4]),1/PDR.c.briere_T.summary[PDR.c.briere_T.summary$temp==28,][1,2],gomp.dtr9.28.b1_func(EIP50.tpc.values[4]), col ="darkcyan", lty = 3,lwd = 1.5)
+segments(0, gomp.dtr12.28.b1_func(EIP50.tpc.values[4]),1/PDR.c.briere_T.summary[PDR.c.briere_T.summary$temp==28,][1,2],gomp.dtr12.28.b1_func(EIP50.tpc.values[4]), col ="#4a3fa8", lty = 3,lwd = 1.5)
+mtext("d", side = 3, at = -6, cex = 1.8, line = 2)
+text(51.5, 0.95, expression(paste("gamma: 0.89")), col = "black", cex = 1.3)
+text(51.5, 0.87, expression(paste("gamma: 0.89")), col ="#4a3fa8", cex = 1.3)
+text(51.5, 0.79, expression(paste("gamma: 0.80")), col ="darkcyan", cex = 1.3)
+legend(42,0.76, legend = c("data", "gompertz", "value"),lwd = 2, lty = c(1,2,3), col = c("black"), bty = 'n')
+
+###32C
+plot(constant.block.surv.estimates.list[[5]]$surv ~ constant.block.surv.estimates.list[[5]]$time,xlim = c(0,40), ylim = c(0,1), ylab = "Porportion alive", xlab = "Time (days at temperature)",main= expression(paste("32",degree,"C")), type ='n', xaxs="i", cex.lab = 1.4, cex.axis = 1.4, cex.main = 1.6)
+lines(constant.block.surv.estimates.list[[5]]$surv ~ constant.block.surv.estimates.list[[5]]$time, col = "black", lwd = 2)
+lines(gomp.const.32.b1_func(seq(0,40,1))~seq(0,40,1), col = "black", lwd=2, lty = 5)
+lines(dtr9.block.surv.estimates.list[[5]]$surv ~ dtr9.block.surv.estimates.list[[5]]$time, col = "darkcyan", lwd =2)
+lines(gomp.dtr9.32.b1_func(seq(0,40,1))~seq(0,40,1), col = "darkcyan", lwd =2, lty=5)
+lines(dtr12.block.surv.estimates.list[[5]]$surv ~ dtr12.block.surv.estimates.list[[5]]$time, col = "#4a3fa8", lwd =2)
+lines(gomp.dtr12.32.b1_func(seq(0,40,1))~seq(0,40,1), col = "#4a3fa8", lwd =2, lty=5)
+abline(v= 1/PDR.c.briere_T.summary[PDR.c.briere_T.summary$temp==32,][1,2], col = "black",  lty=3,lwd=1.5)
+text(13.4, 0, expression(paste("EIP: 7.6 days")), cex = 1.3)
+segments(0, gomp.const.32.b1_func(EIP50.tpc.values[5]),1/PDR.c.briere_T.summary[PDR.c.briere_T.summary$temp==32,][1,2],gomp.const.32.b1_func(EIP50.tpc.values[5]), col ="black", lty = 3,lwd = 1.5)
+segments(0, gomp.dtr9.32.b1_func(EIP50.tpc.values[5]),1/PDR.c.briere_T.summary[PDR.c.briere_T.summary$temp==32,][1,2],gomp.dtr9.32.b1_func(EIP50.tpc.values[5]), col ="darkcyan", lty = 3,lwd = 1.5)
+segments(0, gomp.dtr12.32.b1_func(EIP50.tpc.values[5]),1/PDR.c.briere_T.summary[PDR.c.briere_T.summary$temp==32,][1,2],gomp.dtr12.32.b1_func(EIP50.tpc.values[5]), col ="#4a3fa8", lty = 3,lwd = 1.5)
+mtext("e", side = 3, at = -5, cex = 1.8, line = 2)
+text(34.2,.87, expression(paste("gamma: 0.71")), col = "black", cex = 1.3)
+text(34.2, .79, expression(paste("gamma: 0.61")), col ="#4a3fa8", cex = 1.3)
+text(34.2, .95, expression(paste("gamma: 0.73")), col ="darkcyan", cex = 1.3)
+legend(28,0.76, legend = c("data", "gompertz", "value"),lwd = 2, lty = c(1,2,3), col = c("black"), bty = 'n')
+
+###36C
+plot(constant.block.surv.estimates.list[[6]]$surv ~ constant.block.surv.estimates.list[[6]]$time,xlim = c(0,20), ylim = c(0,1), ylab = "Porportion alive", xlab = "Time (days at temperature)",main= expression(paste("36",degree,"C")), type ='n', xaxs="i", cex.lab = 1.4, cex.axis = 1.4, cex.main = 1.6)
+lines(constant.block.surv.estimates.list[[6]]$surv ~ constant.block.surv.estimates.list[[6]]$time, col = "black", lwd = 2)
+lines(gomp.const.36.b1_func(seq(0,20,1))~seq(0,20,1), col = "black", lwd=2, lty = 5)
+abline(v= 1/PDR.c.briere_T.summary[PDR.c.briere_T.summary$temp==36,][1,2], col = "black",  lty=3,lwd=1.5)
+text(10.2, 0, expression(paste("EIP: 7.2 days")), cex = 1.3)
+segments(0, gomp.const.36.b1_func(EIP50.tpc.values[6]),1/PDR.c.briere_T.summary[PDR.c.briere_T.summary$temp==36,][1,2],gomp.const.36.b1_func(EIP50.tpc.values[6]), col ="black", lty = 3,lwd = 1.5)
+mtext("f", side = 3, at = -2, cex = 1.8, line = 2)
+text(17,.95, expression(paste("gamma: 0.61")), col = "black", cex = 1.3)
+legend(14,0.76, legend = c("data", "gompertz", "value"),lwd = 2, lty = c(1,2,3), col = c("black"), bty = 'n')
+
+par(mfrow = c(1,1))
+dev.off()}
+```
