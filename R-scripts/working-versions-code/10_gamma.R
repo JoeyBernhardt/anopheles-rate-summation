@@ -1,7 +1,11 @@
 
 ##### Calculating gamma!
 
-# # Further, the S(T) formulation uses the Gompertz function over daily adult survival and the extrinsic incubation period (EIP, the inverse of the parasite development rate (PDR-1)) to calculate the proportion of mosquitoes surviving the latency period (ϒ) as described in [19].
+# # Further, the S(T) formulation uses the Gompertz function over daily adult 
+# survival and the extrinsic incubation period (EIP, the inverse of the parasite
+# development rate (PDR-1)) to calculate the proportion of mosquitoes surviving 
+# the latency period (ϒ) as described in [19].
+
 # ## To estimate ϒ, we fit a Gompertz distribution to survivorship
 # data from each temperature and replicate. We then took the
 # proportion of mosquitoes alive upon completion of the predicted
@@ -16,3 +20,5 @@
 # versus estimated (lf*, a*, B*) from the data generated in this
 # study, as well as if any observed differences alter the predicted
 # thermal suitability for malaria transmission (R0).
+
+data.constant <- read.csv("data-raw/constant.individual.trait.csv")

@@ -1,7 +1,0 @@
-temperature,mean,std_error,trait,treatment
-21,0.52,0.12,vector competence,bc_constant
-24,0.605,0.09499999999999997,vector competence,bc_constant
-27,0.605,0.015000000000000012,vector competence,bc_constant
-30,0.44,0.010000000000000009,vector competence,bc_constant
-32,0.41000000000000003,0.009999999999999981,vector competence,bc_constant
-34,0.37,0.03,vector competence,bc_constant
