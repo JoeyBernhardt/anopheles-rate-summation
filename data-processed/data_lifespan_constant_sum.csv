@@ -1,7 +1,0 @@
-temperature,mean,std_error,trait,treatment
-16,34.86666666666667,2.055647679515522,bite rate,lifespan_constant
-20,40.63333333333333,2.1109034489995313,bite rate,lifespan_constant
-24,39.45,1.9949689546315006,bite rate,lifespan_constant
-28,28.788888888888888,1.509974695693298,bite rate,lifespan_constant
-32,15.76271186440678,1.2227960847120707,bite rate,lifespan_constant
-36,9.262295081967213,0.5294092177703866,bite rate,lifespan_constant

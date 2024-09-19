@@ -17,7 +17,7 @@
 
     ## Derived Quantities and Predictions
     for(i in 1:N.Temp.xs){
-    z.trait.mu.pred[i] <- -1 * cf.q * (Temp.xs[i] - cf.T0) * (Temp.xs[i] - cf.Tm) * (cf.Tm > Temp.xs[i]) * (cf.T0 < Temp.xs[i])
+    z.trait.mu.pred[i] <- -1 * cf.q * (Temp.xs[i] - cf.T0) * (Temp.xs[i] - cf.Tm) * (cf.T0 < Temp.xs[i])
     }
 
     } # close model

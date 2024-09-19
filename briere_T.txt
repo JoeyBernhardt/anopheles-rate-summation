@@ -1,13 +1,4 @@
 
-> cat("
-+     model{
-+     
-+     ## Priors
-+     cf.q ~ dunif(0, 1)
-+     cf.T0 ~ dunif(0, 20)
-+     cf.Tm ~ dunif(28, 45)
-+     cf.sigma ~ dunif(0,  ..." ... [TRUNCATED] 
-
     model{
     
     ## Priors
@@ -30,5 +21,3 @@
     
     } # close model
     
-
-> sink()
