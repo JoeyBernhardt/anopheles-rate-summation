@@ -53,13 +53,32 @@ names(data.fluc12)[names(data.fluc12) == 'Treatment'] <- 'temp'
 
 ##### Load data from previous studies for other traits
 data.pea.MDR <- read.csv("data-raw/Krijn_Raw_Data.csv")
-data.bc.EIP <- read.csv("data-raw/forErin_ShapiroData.csv")
+data.bc.EIP <- read.csv("data-raw/ShapiroData.csv")
 data.bc.EIP$inverse.EIP50 = 1/data.bc.EIP$EIP50
 
 ##### Load gamma calculations
 data.gamma.constant <- read.csv("data-processed/gamma_values_constant.csv")
 data.gamma.dtr9 <- read.csv("data-processed/gamma_values_dtr9.csv")
 data.gamma.dtr12 <- read.csv("data-processed/gamma_values_dtr12.csv")
+
+##### Counting sample sizes
+# Constant
+data.constant.ss <- data.constant |>
+	group_by(temp) |>
+	summarise(ss = length(bite.rate)) |>
+	ungroup()
+
+# DTR 9 
+data.fluc9.ss <- data.fluc9 |>
+	group_by(temp) |>
+	summarise(ss = length(bite.rate)) |>
+	ungroup()
+
+# DTR 12
+data.fluc12.ss <- data.fluc12 |>
+	group_by(temp) |>
+	summarise(ss = length(bite.rate)) |>
+	ungroup()
 
 
 ##########
@@ -416,7 +435,7 @@ model_lifespan_all <- jags(data=jag.data, inits=inits, parameters.to.save=parame
 
 ##### Examine model output & run diagnostics
 model_lifespan_all$BUGSoutput$summary[1:5,]
-mcmcplot(model_lifespmodel_lifespan_allan_constant)
+mcmcplot(model_lifespan_all)
 
 ##### Save model output
 # save(model_lifespan_all, file = "saved-posteriors/all_lifespan.Rdata")

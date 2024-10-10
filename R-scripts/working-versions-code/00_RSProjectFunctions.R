@@ -604,44 +604,6 @@ SensitivityAnalysis2_hspc = function(mod_a_preds, mod_bc_preds, mod_lf_preds, mo
 } # end function
 
 
-###### Original version using models instead of matrix predicted values as the input
-
-# ###### D. Function for sensitivity analysis #2 - holding single parameters constant
-# 
-# # Arguments: mod_x = the JAGS model for each trait (for the fitted TPC parameters - T0, Tm, and q);
-# #			 m_x = the mean value for each trait over the temperature gradient
-# 
-# SensitivityAnalysis2_hspc = function(mod_a, mod_bc, mod_lf, mod_gamma, mod_B, mod_pea, mod_mdr) {
-# 	
-# 	# Create matrices to hold results
-# 	dR0.da <- dR0.dbc <- dR0.dlf <- dR0.dgamma <- dR0.dB <- dR0.dpEA <- dR0.dMDR <- dR0.dT <- matrix(NA, nMCMC, N.Temp.xs)
-# 	
-# 	# Extract predicted trait values
-# 	mod_a_preds <- mod_a$BUGSoutput$sims.list$z.trait.mu.pred
-# 	mod_bc_preds <- mod_bc$BUGSoutput$sims.list$z.trait.mu.pred
-# 	mod_lf_preds <- mod_lf$BUGSoutput$sims.list$z.trait.mu.pred
-# 	mod_gamma_preds <- mod_gamma$BUGSoutput$sims.list$z.trait.mu.pred
-# 	mod_B_preds <- mod_B$BUGSoutput$sims.list$z.trait.mu.pred
-# 	mod_pea_preds <- mod_pea$BUGSoutput$sims.list$z.trait.mu.pred
-# 	mod_mdr_preds <- mod_mdr$BUGSoutput$sims.list$z.trait.mu.pred
-# 	
-# 	# Calculate R0 holding each parameter constant
-# 	SA2_a		<- R0eq(1, mod_bc_preds, mod_lf_preds, mod_gamma_preds, mod_B_preds, mod_pea_preds, mod_mdr_preds)
-# 	SA2_bc		<- R0eq(mod_a_preds, 1, mod_lf_preds, mod_gamma_preds, mod_B_preds, mod_pea_preds, mod_mdr_preds)
-# 	SA2_lf		<- R0eq(mod_a_preds, mod_bc_preds, 1, mod_gamma_preds, mod_B_preds, mod_pea_preds, mod_mdr_preds)
-# 	SA2_gamma	<- R0eq(mod_a_preds, mod_bc_preds, mod_lf_preds, 1, mod_B_preds, mod_pea_preds, mod_mdr_preds)
-# 	SA2_B 		<- R0eq(mod_a_preds, mod_bc_preds, mod_lf_preds, mod_gamma_preds, 1, mod_pea_preds, mod_mdr_preds)
-# 	SA2_pEA 	<- R0eq(mod_a_preds, mod_bc_preds, mod_lf_preds, mod_gamma_preds, mod_B_preds, 1, mod_mdr_preds)
-# 	SA2_MDR 	<- R0eq(mod_a_preds, mod_bc_preds, mod_lf_preds, mod_gamma_preds, mod_B_preds, mod_pea_preds, 1)
-# 	SA2_all		<- R0eq(mod_a_preds, mod_bc_preds, mod_lf_preds, mod_gamma_preds, mod_B_preds, mod_pea_preds, mod_mdr_preds)
-# 	
-# 	# Collect output in a list and return it
-# 	SA2_list_out <- list(SA2_a, SA2_bc, SA2_lf, SA2_gamma, SA2_B, SA2_pEA, SA2_MDR, SA2_all)
-# 	SA2_list_out
-# 	
-# } # end function
-
-
 ###### E. Functions for uncertainty analysis
 
 ### Standard version of Uncertainty Analysis for Models 1-4
@@ -738,57 +700,6 @@ UncertaintyAnalysis_RSModel5 = function(mod_a_preds, mod_bc_preds, mod_lf_preds,
 	
 } # end function
 
-###### Original version using models instead of matrix predicted values as the input
-
-# ###### E. Function for uncertainty analysis
-# 
-# # Arguments: mod_x = the JAGS model for each trait (for the fitted TPC parameters - T0, Tm, and q);
-# #			 m_x = the mean value for each trait over the temperature gradient
-# 
-# UncertaintyAnalysis = function(mod_a, mod_bc, mod_lf, mod_gamma, mod_B, mod_pea, mod_mdr,
-# 							   m_a, m_bc, m_lf, m_gamma, m_B, m_pea, m_mdr) {
-# 	
-# 	# Create matrices to hold results
-# 	R0.a <- R0.bc <- R0.lf <- R0.gamma <- R0.B <- R0.pEA <- R0.MDR <- R0.full <- matrix(NA, nMCMC, N.Temp.xs)
-# 	
-# 	# Extract predicted trait values
-# 	mod_a_preds <- mod_a$BUGSoutput$sims.list$z.trait.mu.pred
-# 	mod_bc_preds <- mod_bc$BUGSoutput$sims.list$z.trait.mu.pred
-# 	mod_lf_preds <- mod_lf$BUGSoutput$sims.list$z.trait.mu.pred
-# 	mod_gamma_preds <- mod_gamma$BUGSoutput$sims.list$z.trait.mu.pred
-# 	mod_B_preds <- mod_B$BUGSoutput$sims.list$z.trait.mu.pred
-# 	mod_pea_preds <- mod_pea$BUGSoutput$sims.list$z.trait.mu.pred
-# 	mod_mdr_preds <- mod_mdr$BUGSoutput$sims.list$z.trait.mu.pred
-# 	
-# 	# Calculate posterior samples for R0 across the temp gradient with all-but-one trait fixed to the posterior mean
-# 	for(j in 1:nMCMC){ # loop through MCMC steps
-# 		
-# 		R0.a[j,] <- R0eq(mod_a_preds[j,], m_bc, m_lf, m_gamma, m_B, m_pea, m_mdr)
-# 		R0.bc[j,] <- R0eq(m_a, mod_bc_preds[j,], m_lf, m_gamma, m_B, m_pea, m_mdr)
-# 		R0.lf[j,] <- R0eq(m_a, m_bc, mod_lf_preds[j,], m_gamma, m_B, m_pea, m_mdr)
-# 		R0.gamma[j,] <- R0eq(m_a, m_bc, m_lf, mod_gamma_preds[j,], m_B, m_pea, m_mdr)
-# 		R0.B[j,] <- R0eq(m_a, m_bc, m_lf, m_gamma, mod_B_preds[j,], m_pea, m_mdr)
-# 		R0.pEA[j,] <- R0eq(m_a, m_bc, m_lf, m_gamma, m_B, mod_pea_preds[j,], m_mdr)
-# 		R0.MDR[j,] <- R0eq(m_a, m_bc, m_lf, m_gamma, m_B, m_pea, mod_mdr_preds[j,])
-# 		R0.full[j,] <- R0eq(mod_a_preds[j,], mod_bc_preds[j,], mod_lf_preds[j,], mod_gamma_preds[j,], mod_B_preds[j,], mod_pea_preds[j,], mod_mdr_preds[j,])
-# 		
-# 	}
-# 	
-# 	## Calculate the width of the inner 95% quantile for the posteriors from above
-# 	a.q 	<- apply(R0.a, 2, FUN=quantile, probs=0.925) - apply(R0.a, 2, FUN=quantile, probs=0.025)
-# 	bc.q	<- apply(R0.bc, 2, FUN=quantile, probs=0.925) - apply(R0.bc, 2, FUN=quantile, probs=0.025)
-# 	lf.q	<- apply(R0.lf, 2, FUN=quantile, probs=0.925) - apply(R0.lf, 2, FUN=quantile, probs=0.025)
-# 	gamma.q <- apply(R0.gamma, 2, FUN=quantile, probs=0.925) - apply(R0.gamma, 2, FUN=quantile, probs=0.025)
-# 	B.q 	<- apply(R0.B, 2, FUN=quantile, probs=0.925) - apply(R0.B, 2, FUN=quantile, probs=0.025)
-# 	pEA.q	<- apply(R0.pEA, 2, FUN=quantile, probs=0.925) - apply(R0.pEA, 2, FUN=quantile, probs=0.025)
-# 	MDR.q	<- apply(R0.MDR, 2, FUN=quantile, probs=0.925) - apply(R0.MDR, 2, FUN=quantile, probs=0.025)
-# 	R0.q	<- apply(R0.full, 2, FUN=quantile, probs=0.925, na.rm=F) - apply(R0.full, 2, FUN=quantile, probs=0.025, na.rm=F)
-# 	
-# 	UA_df_out <- data.frame(a = a.q, bc = bc.q, lf = lf.q, gamma = gamma.q, B = B.q, pEA = pEA.q, MDR = MDR.q, R0 = R0.q)
-# 	UA_df_out
-# 	
-# } # end function
-
 
 ########################################### 7. Custom colors for plotting
 
@@ -830,11 +741,3 @@ ct_rssuit12 <-		rgb(194, 165, 207, max = 255, alpha = 95)
 ct_rssuit09 <-		rgb(166, 219, 160, max = 255, alpha = 95)
 ct_rstraits09 <-	rgb(90, 174, 97, max = 255, alpha = 95)
 ct_emp09 <-			rgb(27, 120, 55, max = 255, alpha = 95)
-
-#alpha was 140 originally, tried 95 for fig 2, 80 for figs 3 and 4
-
-# # # Check that the colors are right
-# plot(x = c(1,2,3,4,5,6,7), y = c(1,1,1,1,1,1,1), pch = 19, cex = 10,
-# 	 col = c(c_emp12, c_rstraits12, c_rssuit12, c_constant, c_rssuit09, c_rstraits09, c_emp09))
-# points(x = c(1,2,3,4,5,6,7), y = c(1.2,1.2,1.2,1.2,1.2,1.2,1.2), pch = 19, cex = 10,
-# 	   col = c(ct_emp12, ct_rstraits12, ct_rssuit12, ct_constant, ct_rssuit09, ct_rstraits09, ct_emp09))
