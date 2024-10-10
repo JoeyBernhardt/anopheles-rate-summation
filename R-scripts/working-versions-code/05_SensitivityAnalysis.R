@@ -42,7 +42,7 @@ load("saved-posteriors/dtr12_biterate.Rdata")
 load("saved-posteriors/pea.Rdata")
 load("saved-posteriors/MDR.Rdata")
 load("saved-posteriors/bc.Rdata")
-load("saved-posteriors/temps.Rdata")
+Temp.xs <- seq(0, 45, 0.1) # temperature gradient
 
 ##### Extract matrices of predicted trait values from JAGS models
 # NOTE: These need to be matrices *NOT* be data frames to use colMeans() & the SA/UA functions below,
@@ -192,7 +192,7 @@ m_mdr_rs12 <- colMeans(predictions_mdr_rs12)
 ###################################### Constant
 
 # Calculate sensitivity using partial derivatives
-SA1_constant <- SensitivityAnalysis1_pd(predictions_bite_rate_constant, predictions_bc, predictions_lifespan_constant, predictions_gamma_constant, predictions_eggs_constant, predictions_pea, predictions_mdr,
+SA1_constant <- SensitivityAnalysis1_pd(model_bite_rate_constant, model_bc, model_lifespan_constant, model_gamma_constant, model_eggs_constant, model_pea, model_mdr,
 										   m_bite_rate_constant, m_bc, m_lifespan_constant, m_gamma_constant, m_eggs_constant, m_pea, m_mdr)
 
 # Get sensitivity posteriors for each parameter and summarize them
@@ -208,7 +208,7 @@ dR0dT_constant		<- calcPostQuants(as.data.frame(SA1_constant[[8]]), "SA1_constan
 ###################################### Empirical DTR 9 
 
 # Calculate sensitivity using partial derivatives
-SA1_dtr9 <- SensitivityAnalysis1_pd(predictions_bite_rate_dtr9, predictions_bc, predictions_lifespan_dtr9, predictions_gamma_dtr9, predictions_eggs_dtr9, predictions_pea, predictions_mdr,
+SA1_dtr9 <- SensitivityAnalysis1_pd(model_bite_rate_dtr9, model_bc, model_lifespan_dtr9, model_gamma_dtr9, model_eggs_dtr9, model_pea, model_mdr,
 										m_bite_rate_dtr9, m_bc, m_lifespan_dtr9, m_gamma_dtr9, m_eggs_dtr9, m_pea, m_mdr)
 
 # Get sensitivity posteriors for each parameter and summarize them
@@ -224,7 +224,7 @@ dR0dT_dtr9		<- calcPostQuants(as.data.frame(SA1_dtr9[[8]]), "SA1_dtr9_R0", Temp.
 ###################################### Empirical DTR 12
 
 # Calculate sensitivity using partial derivatives
-SA1_dtr12 <- SensitivityAnalysis1_pd(predictions_bite_rate_dtr12, predictions_bc, predictions_lifespan_dtr12, predictions_gamma_dtr12, predictions_eggs_dtr12, predictions_pea, predictions_mdr,
+SA1_dtr12 <- SensitivityAnalysis1_pd(model_bite_rate_dtr12, model_bc, model_lifespan_dtr12, model_gamma_dtr12, model_eggs_dtr12, model_pea, model_mdr,
 										m_bite_rate_dtr12, m_bc, m_lifespan_dtr12, m_gamma_dtr12, m_eggs_dtr12, m_pea, m_mdr)
 
 # Get sensitivity posteriors for each parameter and summarize them

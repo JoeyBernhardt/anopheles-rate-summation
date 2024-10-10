@@ -27,6 +27,9 @@ library(patchwork)
 ##### Load functions
 source("R-scripts/working-versions-code/00_RSProjectFunctions.R")
 
+##### Make posterior output folder
+dir.create("figures", showWarnings = FALSE)
+
 
 ##########
 ###### 2. Load and process data for Bite Rate (a), Lifespan (lf), and Lifetime eggs (B)
@@ -220,7 +223,6 @@ ggsave('figures/Fig1_plots-Sept2024.pdf', Fig1_plots, width = 15, height = 6)
 # 		   #CCCC##"
 # Fig1_plots_sq_c <- wrap_plots(ncol = 2, design = design, A = bite_rate_plot_all, B = lifespan_plot_all, C = eggs_plot_all)
 # ggsave('figures/Fig1_plots_sq_c-Jan4.pdf', Fig1_plots_sq_c, width = 10, height = 11)
-
 
 
 ##########

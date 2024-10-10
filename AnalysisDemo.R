@@ -37,7 +37,7 @@ source("R-scripts/working-versions-code/00_RSProjectFunctions.R")
 # source("R-scripts/working-versions-code/00_JAGSModels.R")
 
 ##### Load trait data from constant temperatures to use as an example, change one column name
-data.constant <- read.csv("data-raw/constant.individual.trait.csv")
+data.constant <- read.csv("data/constant.individual.trait.csv")
 names(data.constant)[names(data.constant) == 'Treatment'] <- 'temp'
 
 

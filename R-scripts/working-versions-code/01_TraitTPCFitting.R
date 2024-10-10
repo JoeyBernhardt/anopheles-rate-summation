@@ -43,17 +43,17 @@ source("R-scripts/working-versions-code/00_RSProjectFunctions.R")
 # source("R-scripts/working-versions-code/00_JAGSModels.R")
 
 ##### Load raw trait data from fluctuating temperature experiment
-data.constant <- read.csv("data-raw/constant.individual.trait.csv")
+data.constant <- read.csv("data/constant.individual.trait.csv")
 names(data.constant)[names(data.constant) == 'Treatment'] <- 'temp'
-data.fluc9 <- read.csv("data-raw/fluc9.individual.trait.csv")
+data.fluc9 <- read.csv("data/fluc9.individual.trait.csv")
 names(data.fluc9)[names(data.fluc9) == 'Treatment'] <- 'temp'
-data.fluc12 <- read.csv("data-raw/fluc12.individual.trait.csv")
+data.fluc12 <- read.csv("datafluc12.individual.trait.csv")
 names(data.fluc12)[names(data.fluc12) == 'Treatment'] <- 'temp'
 # Note: We kept the data at 36C at constant temp for the TPC fits 
 
 ##### Load data from previous studies for other traits
-data.pea.MDR <- read.csv("data-raw/Krijn_Raw_Data.csv")
-data.bc.EIP <- read.csv("data-raw/ShapiroData.csv")
+data.pea.MDR <- read.csv("data/Krijn_Raw_Data.csv")
+data.bc.EIP <- read.csv("data/ShapiroData.csv")
 data.bc.EIP$inverse.EIP50 = 1/data.bc.EIP$EIP50
 
 ##### Load gamma calculations
@@ -80,6 +80,8 @@ data.fluc12.ss <- data.fluc12 |>
 	summarise(ss = length(bite.rate)) |>
 	ungroup()
 
+##### Make posterior output folder
+dir.create("saved-posteriors", showWarnings = FALSE)
 
 ##########
 ###### 2. Shared settings for all models
@@ -152,7 +154,7 @@ model_bite_rate_constant$BUGSoutput$DIC
 model_bite_rate_constantq$BUGSoutput$DIC
 
 # ##### Save model output 
-# save(model_bite_rate_constant, file = "saved-posteriors/constant_biterate.Rdata")
+save(model_bite_rate_constant, file = "saved-posteriors/constant_biterate.Rdata")
 
 ##### Plot trait data, model mean and CIs
 plot(trait ~ jitter(T, 0.5), xlim = c(0, 45), data = data_bite_rate_constant, 
@@ -192,7 +194,7 @@ model_bite_rate_dtr9$BUGSoutput$DIC
 model_bite_rate_dtr9q$BUGSoutput$DIC
 
 # ##### Save model output 
-# save(model_bite_rate_dtr9, file = "saved-posteriors/dtr9_biterate.Rdata")
+save(model_bite_rate_dtr9, file = "saved-posteriors/dtr9_biterate.Rdata")
 
 # Plot trait data, model mean and CIs
 plot(trait ~ jitter(T, 0.5), xlim = c(0, 45), data = data_bite_rate_dtr9,
@@ -232,7 +234,7 @@ model_bite_rate_dtr12$BUGSoutput$DIC
 model_bite_rate_dtr12q$BUGSoutput$DIC
 
 # ##### Save model output
-# save(model_bite_rate_dtr12, file = "saved-posteriors/dtr12_biterate.Rdata")
+save(model_bite_rate_dtr12, file = "saved-posteriors/dtr12_biterate.Rdata")
 
 ##### Plot trait data, model mean and CIs
 plot(trait ~ jitter(T, 0.5), xlim = c(0, 45), data = data_bite_rate_dtr12,
@@ -264,7 +266,7 @@ model_bite_rate_all$BUGSoutput$summary[1:5,]
 mcmcplot(model_bite_rate_all)
 
 # ##### Save model output 
-# save(model_bite_rate_all, file = "saved-posteriors/all_biterate.Rdata")
+save(model_bite_rate_all, file = "saved-posteriors/all_biterate.Rdata")
 
 ##### Plot trait data, model mean and CIs
 plot(trait ~ jitter(T, 0.5), xlim = c(0, 45), data = data_bite_rate_all, 
@@ -324,8 +326,7 @@ model_lifespan_constant$BUGSoutput$DIC
 model_lifespan_constantb$BUGSoutput$DIC
 
 ##### Save model output
-# save(model_lifespan_constant, file = "saved-posteriors/constant_lifespan.Rdata")
-# save(model_lifespan_constant_negpred, file = "saved-posteriors/constant_lifespan_negpred.Rdata")
+save(model_lifespan_constant, file = "saved-posteriors/constant_lifespan.Rdata")
 
 ##### Plot trait data, model mean and CIs
 plot(trait ~ jitter(T, 0.5), xlim = c(0, 45), data = data_lifespan_constant,
@@ -365,7 +366,7 @@ model_lifespan_dtr9$BUGSoutput$DIC
 model_lifespan_dtr9b$BUGSoutput$DIC
 
 ##### Save model output
-# save(model_lifespan_dtr9, file = "saved-posteriors/dtr9_lifespan.Rdata")
+save(model_lifespan_dtr9, file = "saved-posteriors/dtr9_lifespan.Rdata")
 
 ##### Plot trait data, model mean and CIs
 plot(trait ~ jitter(T, 0.5), xlim = c(0, 45), data = data_lifespan_dtr9,
@@ -405,7 +406,7 @@ model_lifespan_dtr12$BUGSoutput$DIC
 model_lifespan_dtr12b$BUGSoutput$DIC
 
 ##### Save model output
-# save(model_lifespan_dtr12, file = "saved-posteriors/dtr12_lifespan.Rdata")
+save(model_lifespan_dtr12, file = "saved-posteriors/dtr12_lifespan.Rdata")
 
 ##### Plot trait data, model mean and CIs
 plot(trait ~ jitter(T, 0.5), xlim = c(0, 45), data = data_lifespan_dtr12,
@@ -438,7 +439,7 @@ model_lifespan_all$BUGSoutput$summary[1:5,]
 mcmcplot(model_lifespan_all)
 
 ##### Save model output
-# save(model_lifespan_all, file = "saved-posteriors/all_lifespan.Rdata")
+save(model_lifespan_all, file = "saved-posteriors/all_lifespan.Rdata")
 
 ##### Plot trait data, model mean and CIs
 plot(trait ~ jitter(T, 0.5), xlim = c(0, 45), data = data_lifespan_all,
@@ -490,7 +491,7 @@ model_eggs_constant$BUGSoutput$summary[1:5,]
 # mcmcplot(model_eggs_constant)
 
 ##### Save model output
-# save(model_eggs_constant, file = "saved-posteriors/constant_eggs.Rdata")
+save(model_eggs_constant, file = "saved-posteriors/constant_eggs.Rdata")
 
 ##### Plot trait data, model mean and CIs
 plot(trait ~ jitter(T, 0.5), xlim = c(0, 45), data = data_eggs_constant,
@@ -536,7 +537,7 @@ model_eggs_dtr9$BUGSoutput$summary[1:5,]
 # mcmcplot(model_eggs_dtr9)
 
 ##### Save model output
-# save(model_eggs_dtr9, file = "saved-posteriors/dtr9_eggs.Rdata")
+save(model_eggs_dtr9, file = "saved-posteriors/dtr9_eggs.Rdata")
 
 ##### Plot trait data, model mean and CIs
 plot(trait ~ jitter(T, 0.5), xlim = c(0, 45), data = data_eggs_dtr9,
@@ -583,7 +584,7 @@ model_eggs_dtr12$BUGSoutput$summary[1:5,]
 # mcmcplot(model_eggs_dtr12)
 
 ##### Save model output
-# save(model_eggs_dtr12, file = "saved-posteriors/dtr12_eggs.Rdata")
+save(model_eggs_dtr12, file = "saved-posteriors/dtr12_eggs.Rdata")
 
 ##### Plot trait data, model mean and CIs
 plot(trait ~ jitter(T, 0.5), xlim = c(0, 45), data = data_eggs_dtr12,
@@ -634,7 +635,7 @@ model_eggs_all$BUGSoutput$summary[1:5,]
 # mcmcplot(model_eggs_constant)
 
 ##### Save model output
-# save(model_eggs_constant, file = "saved-posteriors/constant_eggs.Rdata")
+save(model_eggs_all, file = "saved-posteriors/all_eggs.Rdata")
 
 ##### Plot trait data, model mean and CIs
 plot(trait ~ jitter(T, 0.5), xlim = c(0, 45), data = data_eggs_all,
@@ -950,7 +951,7 @@ model_gamma_all$BUGSoutput$summary[1:5,]
 mcmcplot(model_gamma_all)
 
 # Save model output
-save(model_gamma_all, file = "saved-posteriors/dtr12_gamma.Rdata")
+save(model_gamma_all, file = "saved-posteriors/all_gamma.Rdata")
 
 # Plot trait data, model mean and CIs
 plot(trait ~ jitter(T, 0.5), xlim = c(0, 45), ylim = c(0,1), data = data_gamma_all,

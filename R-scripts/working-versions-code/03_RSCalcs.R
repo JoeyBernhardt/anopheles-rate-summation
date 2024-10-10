@@ -50,7 +50,7 @@ load("saved-posteriors/pea.Rdata")
 load("saved-posteriors/MDR.Rdata")
 load("saved-posteriors/EIP50.Rdata")
 load("saved-posteriors/bc.Rdata")
-load("saved-posteriors/temps.Rdata")
+Temp.xs <- seq(0, 45, 0.1) # temperature gradient
 
 # load("saved-posteriors/constant_lifespan_negpred.Rdata")
 

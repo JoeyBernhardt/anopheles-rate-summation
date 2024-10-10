@@ -388,17 +388,6 @@ all_suit_plot <- all_suit_predictions %>%
 
 head(suit_const_summary)
 
-# suitabilityOutputForMapping <- data.frame(temp = suit_const_summary_rel$temperature,
-# 										  constant = suit_const_summary_rel$median,
-# 										  empDTR09 = suit_empfluc_dtr09_summary_rel$median,
-# 										  empDTR12 = suit_empfluc_dtr12_summary_rel$median,
-# 										  rs3TraitsDTR09 = suit_rs_3traits_09_summary_rel$median,
-# 										  rs3TraitsDTR12 = suit_rs_3traits_12_summary_rel$median,
-# 										  rsAllTraitsDTR09 = suit_rs_traitsall_09_summary_rel$median,
-# 										  rsAllTraitsDTR12 = suit_rs_traitsall_12_summary_rel$median,
-# 										  rsSuitDTR09 = suit_rs_suit_09_summary_rel$median,
-# 										  rsSuitDTR12 = suit_rs_suit_12_summary_rel$median)
-
 # Scale each model's lower CI contour to itself get relative R0/S(T) for mapping
 suitabilityOutputForMapping_lowerCI <- data.frame(temp = suit_const_summary$temperature,
 												   constant = suit_const_summary$lowerCI/max(suit_const_summary$lowerCI),
@@ -409,27 +398,8 @@ suitabilityOutputForMapping_lowerCI <- data.frame(temp = suit_const_summary$temp
 
 #Check output
 plot(constant ~ temp, data = suitabilityOutputForMapping_lowerCI, type = "l")
-lines(empDTR09 ~ temp, data = suitabilityOutputForMapping_lowerCI, col = "red")
 lines(empDTR12 ~ temp, data = suitabilityOutputForMapping_lowerCI, col = "darkorange")
-lines(rs3TraitsDTR09 ~ temp, data = suitabilityOutputForMapping_lowerCI, col = "green")
-lines(rs3TraitsDTR12 ~ temp, data = suitabilityOutputForMapping_lowerCI, col = "darkgreen")
-lines(rsAllTraitsDTR09 ~ temp, data = suitabilityOutputForMapping_lowerCI, col = "dodgerblue")
 lines(rsAllTraitsDTR12 ~ temp, data = suitabilityOutputForMapping_lowerCI, col = "blue")
-lines(rsSuitDTR09 ~ temp, data = suitabilityOutputForMapping_lowerCI, col = "violet")
 lines(rsSuitDTR12 ~ temp, data = suitabilityOutputForMapping_lowerCI, col = "purple")
 
-#Check output
-plot(constant ~ temp, data = suitabilityOutputForMapping, type = "l")
-lines(empDTR09 ~ temp, data = suitabilityOutputForMapping, col = "red")
-lines(empDTR12 ~ temp, data = suitabilityOutputForMapping, col = "darkorange")
-lines(rs3TraitsDTR09 ~ temp, data = suitabilityOutputForMapping, col = "green")
-lines(rs3TraitsDTR12 ~ temp, data = suitabilityOutputForMapping, col = "darkgreen")
-lines(rsAllTraitsDTR09 ~ temp, data = suitabilityOutputForMapping, col = "dodgerblue")
-lines(rsAllTraitsDTR12 ~ temp, data = suitabilityOutputForMapping, col = "blue")
-lines(rsSuitDTR09 ~ temp, data = suitabilityOutputForMapping, col = "violet")
-lines(rsSuitDTR12 ~ temp, data = suitabilityOutputForMapping, col = "purple")
-
-write.csv(suitabilityOutputForMapping, "data-processed/RateSummationProjectR0forMapping.csv")
 write.csv(suitabilityOutputForMapping_lowerCI, "data-processed/RateSummationProjectR0forMapping_lowerCI.csv")
-
-suitabilityOutputForMapping.test <- read.csv("data-processed/RateSummationProjectR0forMapping.csv")
