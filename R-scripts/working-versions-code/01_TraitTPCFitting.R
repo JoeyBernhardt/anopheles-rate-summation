@@ -47,7 +47,7 @@ data.constant <- read.csv("data/constant.individual.trait.csv")
 names(data.constant)[names(data.constant) == 'Treatment'] <- 'temp'
 data.fluc9 <- read.csv("data/fluc9.individual.trait.csv")
 names(data.fluc9)[names(data.fluc9) == 'Treatment'] <- 'temp'
-data.fluc12 <- read.csv("datafluc12.individual.trait.csv")
+data.fluc12 <- read.csv("data/fluc12.individual.trait.csv")
 names(data.fluc12)[names(data.fluc12) == 'Treatment'] <- 'temp'
 # Note: We kept the data at 36C at constant temp for the TPC fits 
 
